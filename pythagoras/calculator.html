@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>피타고라스 음률 연주기 & 특수 연산 계산기</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        :root {
+            /* Player Colors */
+            --player-primary: #17a2b8;
+            --player-hover: #138496;
+            --player-secondary: #28a745;
+            --player-secondary-hover: #218838;
+            --player-export: #6f42c1; /* 이미지 저장 버튼 색상 */
+            --player-export-hover: #59339d;
+            
+            /* Calculator Colors */
+            --calc-primary: #28a745;
+            --calc-hover: #218838;
+            --calc-secondary: #6c757d;
+            --calc-secondary-hover: #5a6268;
+            
+            /* Common Colors */
+            --background-color: #e9ecef;
+            --container-background: #ffffff;
+            --text-color: #343a40;
+            --label-color: #495057;
+            --border-color: #ced4da;
+            --result-background: #f8f9fa;
+            
+            /* Fonts */
+            --font-sans-kr: 'Noto Sans KR', sans-serif;
+            --font-poppins: 'Poppins', sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: var(--font-sans-kr);
+            background-color: var(--background-color);
+            color: var(--text-color);
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+            margin: 0;
+            padding: 30px 20px;
+        }
+
+        .main-wrapper {
+            display: flex;
+            gap: 30px;
+            width: 100%;
+            max-width: 1200px;
+            justify-content: center;
+            flex-wrap: wrap; 
+        }
+
+        .app-panel {
+            background-color: var(--container-background);
+            padding: 30px 35px;
+            border-radius: 12px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+            flex: 1;
+            min-width: 320px;
+            max-width: 550px;
+        }
+
+        h1 {
+            font-family: var(--font-poppins);
+            margin-top: 0;
+            margin-bottom: 25px;
+            font-size: 2.2em;
+            font-weight: 600;
+            text-align: center;
+        }
+
+        .player-title { color: var(--player-primary); }
+        .calc-title { color: var(--calc-primary); }
+
+        button {
+            padding: 10px 18px;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.95em;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background-color 0.2s ease-in-out, transform 0.1s ease, box-shadow 0.2s ease;
+            font-family: var(--font-sans-kr);
+        }
+        button:active:not(:disabled) {
+            transform: translateY(1px);
+        }
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* ===== 피타고라스 음률 연주기(구 멀티톤 플레이어) 스타일 ===== */
+        .action-button-container {
+            margin-bottom: 25px;
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        #fillTemperamentButton {
+            background-color: var(--player-secondary);
+            color: white;
+            flex: 1;
+            min-width: 160px;
+        }
+        #fillTemperamentButton:hover {
+            background-color: var(--player-secondary-hover);
+        }
+        #saveImageButton {
+            background-color: var(--player-export);
+            color: white;
+            flex: 1;
+            min-width: 160px;
+        }
+        #saveImageButton:hover {
+            background-color: var(--player-export-hover);
+        }
+
+        .tone-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 18px;
+            gap: 12px;
+        }
+
+        .note-label {
+            font-weight: 500;
+            font-size: 1em;
+            color: var(--label-color);
+            width: 40px;
+            text-align: right;
+            flex-shrink: 0;
+        }
+        
+        input[type="number"] {
+            padding: 10px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 0.95em;
+            font-family: var(--font-poppins);
+            transition: border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out, background-color 0.2s ease;
+        }
+        input[type="number"]:focus {
+            outline: none;
+        }
+
+        input[type="number"].frequency-input {
+            flex-grow: 1;
+            text-align: right;
+            cursor: grab;
+        }
+        input[type="number"].frequency-input:focus {
+            border-color: var(--player-primary);
+            box-shadow: 0 0 0 0.2rem rgba(23, 162, 184, 0.25);
+            cursor: text; 
+        }
+        input[type="number"].frequency-input:active {
+            cursor: grabbing;
+        }
+        input[type="number"].frequency-input.drag-over {
+            border-color: var(--player-secondary);
+            background-color: rgba(40, 167, 69, 0.1);
+            box-shadow: 0 0 0 0.2rem rgba(40, 167, 69, 0.25);
+        }
+
+        button.play-button {
+            background-color: var(--player-primary);
+            color: white;
+            width: 80px;
+            flex-shrink: 0;
+        }
+        button.play-button:hover {
+            background-color: var(--player-hover);
+        }
+
+        .info-text {
+            margin-top: 25px;
+            font-size: 0.85em;
+            color: #6c757d;
+            text-align: center;
+            line-height: 1.4;
+        }
+
+        /* ===== 계산기 스타일 ===== */
+        .form-group { margin-bottom: 20px; }
+        label { display: block; font-weight: 500; margin-bottom: 8px; font-size: 0.95em; }
+        
+        input[type="number"].calc-input {
+            width: 100%;
+        }
+        input[type="number"].calc-input:focus {
+            border-color: var(--calc-primary);
+            box-shadow: 0 0 0 0.2rem rgba(40, 167, 69, 0.25);
+        }
+        input[type="number"].calc-input.drag-over {
+            border-color: var(--calc-primary);
+            background-color: rgba(40, 167, 69, 0.1);
+            box-shadow: 0 0 0 0.2rem rgba(40, 167, 69, 0.25);
+        }
+        
+        select {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 1em;
+            font-family: var(--font-poppins);
+            transition: border-color 0.2s, box-shadow 0.2s;
+            appearance: none;
+            background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22292.4%22 height=%22292.4%22%3E%3Cpath fill=%22%23007bff%22 d=%22M287 69.4a17.6 17.6 0 0 0-13-5.4H18.4c-5 0-9.3 1.8-12.9 5.4A17.6 17.6 0 0 0 0 82.2c0 5 1.8 9.3 5.4 12.9l128 127.9c3.6 3.6 7.8 5.4 12.8 5.4s9.2-1.8 12.8-5.4L287 95c3.5-3.5 5.4-7.8 5.4-12.8 0-5-1.9-9.2-5.5-12.8z%22/%3E%3C/svg%3E');
+            background-repeat: no-repeat;
+            background-position: right 15px center;
+            background-size: 0.65em auto;
+            padding-right: 40px;
+        }
+        select:focus {
+            border-color: var(--calc-primary);
+            box-shadow: 0 0 0 0.2rem rgba(40, 167, 69, 0.25);
+            outline: none;
+        }
+
+        #calculateButton {
+            width: 100%;
+            padding: 12px 20px;
+            font-size: 1.1em;
+            background-color: var(--calc-primary);
+            color: #fff;
+            margin-top: 10px;
+        }
+        #calculateButton:hover:not(:disabled) {
+            background-color: var(--calc-hover);
+        }
+
+        .result-area {
+            margin-top: 25px;
+            padding: 15px;
+            background-color: var(--result-background);
+            border: 2px dashed transparent;
+            border-radius: 8px;
+            text-align: center;
+            min-height: 3em;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: var(--font-poppins);
+            font-size: 1.1em;
+            font-weight: 500;
+            word-break: break-all;
+            transition: background-color 0.3s, color 0.3s, border-color 0.3s;
+        }
+        
+        .result-area.draggable-ready {
+            cursor: grab;
+            border-color: var(--calc-primary);
+            background-color: #e8f5e9;
+        }
+        .result-area.draggable-ready:active {
+            cursor: grabbing;
+        }
+        .result-area.error { color: #D8000C; background-color: #FFD2D2; border-color: transparent; cursor: default; }
+        
+        .result-actions { margin-top: 15px; display: flex; gap: 10px; }
+        .result-actions button { flex-grow: 1; background-color: var(--calc-secondary); color: #fff; }
+        .result-actions button:hover:not(:disabled) { background-color: var(--calc-secondary-hover); }
+
+        .drag-help-text {
+            font-size: 0.8em;
+            color: var(--calc-primary);
+            margin-top: 8px;
+            text-align: center;
+            display: none;
+        }
+        .draggable-ready + .drag-help-text {
+            display: block;
+            animation: fadeIn 0.5s;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="main-wrapper">
+        <div class="app-panel" id="playerPanel">
+            <h1 class="player-title">피타고라스 음률 연주기</h1>
+            <div class="action-button-container">
+                <button id="fillTemperamentButton">12평균율로 채우기</button>
+                <button id="saveImageButton">이미지로 저장</button>
+            </div>
+            <div id="toneRowsContainer">
+                </div>
+            <p class="info-text">
+                각 주파수는 2초 동안 재생됩니다. '라' 음은 A4=440Hz 기준입니다.<br>
+                💡 <b>Tip:</b> 계산기 결과 ↔ 주파수 입력칸 양방향으로<br>값을 드래그 앤 드롭할 수 있습니다.
+            </p>
+        </div>
+
+        <div class="app-panel">
+            <h1 class="calc-title">특수 연산 계산기</h1>
+
+            <div class="form-group">
+                <label for="numberInput">숫자 입력 (결과 드롭 가능):</label>
+                <input type="number" id="numberInput" class="calc-input" placeholder="여기에 숫자를 입력/드롭하세요" step="any" inputmode="decimal"/>
+            </div>
+
+            <div class="form-group">
+                <label for="operationSelect">연산 선택:</label>
+                <select id="operationSelect">
+                    <option value="mul_0_5">× 1/2 (0.5)</option>
+                    <option value="mul_2">× 2</option>
+                    <option value="mul_2_div_3">× 2/3 (약 0.666...)</option>
+                    <option value="mul_3_div_2">× 3/2 (1.5)</option>
+                    <option value="mul_12root2">× 열두제곱근2 (약 1.05946309)</option>
+                    <option value="div_12root2">÷ 열두제곱근2 (약 0.94387431)</option>
+                </select>
+            </div>
+
+            <button id="calculateButton">계산하기</button>
+
+            <div id="resultDisplay" class="result-area" role="status" aria-live="polite">
+                결과가 여기에 표시됩니다.
+            </div>
+            <div class="drag-help-text">결과값을 왼쪽 주파수 칸으로 드래그해보세요!</div>
+
+            <div class="result-actions">
+                <button id="sendToInputButton" disabled>입력칸으로</button>
+                <button id="copyResultButton" disabled>결과 복사</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // === 공통 상수 ===
+            const TWELFTH_ROOT_OF_TWO = Math.pow(2, 1/12);
+
+            // === 피타고라스 음률 연주기 로직 ===
+            const playerPanel = document.getElementById('playerPanel');
+            const toneRowsContainer = document.getElementById('toneRowsContainer');
+            const fillTemperamentButton = document.getElementById('fillTemperamentButton');
+            const saveImageButton = document.getElementById('saveImageButton');
+            
+            let audioContext = null;
+            const playbackDuration = 2.0; 
+            const targetVolume = 0.4; 
+            const fadeInDuration = 0.01;
+            const fadeOutDuration = 0.15;
+            const A4_FREQ = 440.0;
+
+            const noteInfos = [
+                { label: '도', semitones: -9 }, { label: '레', semitones: -7 },
+                { label: '미', semitones: -5 }, { label: '파', semitones: -4 },
+                { label: '솔', semitones: -2 }, { label: '라', semitones: 0 },
+                { label: '시', semitones: 2 },  { label: '도', semitones: 3 },
+                { label: '레', semitones: 5 },  { label: '미', semitones: 7 }
+            ];
+
+            function initializeAudioContext() {
+                if (!audioContext) {
+                    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                } else if (audioContext.state === 'suspended') {
+                    audioContext.resume().catch(err => console.error("AudioContext resume failed:", err));
+                }
+            }
+
+            function playSound(frequency, duration) { 
+                initializeAudioContext();
+                if (!audioContext) {
+                    alert("오디오 컨텍스트를 초기화할 수 없습니다."); return;
+                }
+                if (isNaN(frequency) || frequency < 20 || frequency > 20000) {
+                    alert("유효한 주파수 값을 입력해주세요 (20.00 - 20000.00 Hz)."); return;
+                }
+
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                oscillator.type = 'sine';
+                oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
+                gainNode.connect(audioContext.destination);
+                oscillator.connect(gainNode);
+                gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+                gainNode.gain.linearRampToValueAtTime(targetVolume, audioContext.currentTime + fadeInDuration);
+
+                if (duration > fadeInDuration + fadeOutDuration) {
+                    const fadeOutStartTime = audioContext.currentTime + duration - fadeOutDuration;
+                    gainNode.gain.setValueAtTime(targetVolume, fadeOutStartTime); 
+                    gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + duration); 
+                } else { 
+                    gainNode.gain.setValueAtTime(targetVolume, audioContext.currentTime + fadeInDuration); 
+                    gainNode.gain.setValueAtTime(0, audioContext.currentTime + duration); 
+                }
+                oscillator.start(audioContext.currentTime);
+                oscillator.stop(audioContext.currentTime + duration);
+                oscillator.onended = () => {
+                    oscillator.disconnect();
+                    gainNode.disconnect();
+                };
+            }
+
+            function calculateFrequency(baseFreq, semitones) {
+                return baseFreq * Math.pow(TWELFTH_ROOT_OF_TWO, semitones);
+            }
+
+            const inputElements = [];
+
+            noteInfos.forEach((info, index) => {
+                const row = document.createElement('div');
+                row.classList.add('tone-row');
+
+                const label = document.createElement('span');
+                label.classList.add('note-label');
+                label.textContent = info.label;
+
+                const input = document.createElement('input');
+                input.type = 'number';
+                input.classList.add('frequency-input');
+                input.step = '0.01';
+                input.min = '20';
+                input.max = '20000';
+                input.placeholder = "Hz";
+                input.id = `freqInput-${index}`;
+                
+                input.setAttribute('draggable', 'true');
+                input.addEventListener('focus', () => input.removeAttribute('draggable'));
+                input.addEventListener('blur', () => input.setAttribute('draggable', 'true'));
+
+                inputElements.push(input);
+
+                if (info.label === '라' && info.semitones === 0) {
+                    input.value = A4_FREQ.toFixed(2);
+                }
+
+                const button = document.createElement('button');
+                button.classList.add('play-button');
+                button.textContent = '재생';
+                // html2canvas가 캡처할 때 재생 버튼이 눌린 것처럼 보이지 않도록 data-html2canvas-ignore 속성 부여 가능하지만 여기서는 그대로 둡니다.
+                button.addEventListener('click', () => {
+                    const freqValue = parseFloat(input.value);
+                    playSound(freqValue, playbackDuration); 
+                });
+                
+                input.addEventListener('keypress', (event) => {
+                    if (event.key === 'Enter') { 
+                         const freqValue = parseFloat(input.value);
+                         playSound(freqValue, playbackDuration);
+                    }
+                });
+
+                input.addEventListener('dragstart', (e) => {
+                    if (input.value) {
+                        e.dataTransfer.setData('text/plain', input.value);
+                        e.dataTransfer.effectAllowed = 'copy';
+                    } else {
+                        e.preventDefault();
+                    }
+                });
+
+                input.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    input.classList.add('drag-over');
+                });
+
+                input.addEventListener('dragleave', (e) => {
+                    input.classList.remove('drag-over');
+                });
+
+                input.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    input.classList.remove('drag-over');
+                    const draggedData = e.dataTransfer.getData('text/plain');
+                    if (draggedData && !isNaN(parseFloat(draggedData))) {
+                        input.value = parseFloat(draggedData).toFixed(2);
+                    }
+                });
+
+                row.appendChild(label);
+                row.appendChild(input);
+                row.appendChild(button);
+                toneRowsContainer.appendChild(row);
+            });
+
+            fillTemperamentButton.addEventListener('click', () => {
+                noteInfos.forEach((info, index) => {
+                    const freq = calculateFrequency(A4_FREQ, info.semitones);
+                    inputElements[index].value = freq.toFixed(2);
+                });
+            });
+
+            // === [이미지 저장 기능 구현] ===
+            saveImageButton.addEventListener('click', () => {
+                const originalText = saveImageButton.textContent;
+                saveImageButton.textContent = '저장 중...';
+                saveImageButton.disabled = true;
+
+                // html2canvas 실행
+                html2canvas(playerPanel, {
+                    backgroundColor: '#ffffff', // 배경색 지정
+                    scale: 2 // 고해상도 캡처를 위해 스케일 2배 적용
+                }).then(canvas => {
+                    const link = document.createElement('a');
+                    link.download = '피타고라스_음률_계산기.png';
+                    link.href = canvas.toDataURL('image/png');
+                    link.click();
+                    
+                    saveImageButton.textContent = originalText;
+                    saveImageButton.disabled = false;
+                }).catch(err => {
+                    console.error('이미지 캡처 오류:', err);
+                    alert('이미지를 저장하는 데 실패했습니다.');
+                    saveImageButton.textContent = originalText;
+                    saveImageButton.disabled = false;
+                });
+            });
+
+
+            // === 특수 연산 계산기 로직 ===
+            const numberInput = document.getElementById('numberInput');
+            const operationSelect = document.getElementById('operationSelect');
+            const calculateButton = document.getElementById('calculateButton');
+            const resultDisplay = document.getElementById('resultDisplay');
+            const sendToInputButton = document.getElementById('sendToInputButton');
+            const copyResultButton = document.getElementById('copyResultButton');
+
+            let lastRawResult = null;
+            let lastFormattedResultString = "";
+
+            function updateActionButtonsState(){
+                const hasValidResult = lastRawResult !== null;
+                sendToInputButton.disabled = !hasValidResult;
+                copyResultButton.disabled = !hasValidResult;
+                
+                if (hasValidResult) {
+                    resultDisplay.classList.add('draggable-ready');
+                    resultDisplay.setAttribute('draggable', 'true');
+                    resultDisplay.title = "이 결과를 왼쪽 주파수 입력칸으로 드래그하세요.";
+                } else {
+                    resultDisplay.classList.remove('draggable-ready');
+                    resultDisplay.removeAttribute('draggable');
+                    resultDisplay.title = "";
+                }
+            }
+            
+            function setResultError(msg){
+                resultDisplay.textContent = msg;
+                resultDisplay.classList.add('error');
+                lastRawResult = null;
+                lastFormattedResultString = "";
+                updateActionButtonsState();
+            }
+            
+            function clearResultClasses(){
+                resultDisplay.classList.remove('error');
+            }
+
+            calculateButton.addEventListener('click', () => {
+                const inputValueString = numberInput.value;
+                clearResultClasses();
+
+                if (inputValueString.trim() === ''){
+                    setResultError('숫자를 입력해주세요.');
+                    return;
+                }
+
+                const inputValue = parseFloat(inputValueString);
+                if (isNaN(inputValue)){
+                    setResultError('유효한 숫자가 아닙니다.');
+                    return;
+                }
+
+                const operation = operationSelect.value;
+                let currentCalculatedResult;
+
+                switch (operation){
+                    case 'mul_0_5': currentCalculatedResult = inputValue * 0.5; break;
+                    case 'mul_2': currentCalculatedResult = inputValue * 2; break;
+                    case 'mul_2_div_3': currentCalculatedResult = inputValue * (2/3); break;
+                    case 'mul_3_div_2': currentCalculatedResult = inputValue * 1.5; break;
+                    case 'mul_12root2': currentCalculatedResult = inputValue * TWELFTH_ROOT_OF_TWO; break;
+                    case 'div_12root2': currentCalculatedResult = inputValue / TWELFTH_ROOT_OF_TWO; break;
+                    default: setResultError('알 수 없는 연산입니다.'); return;
+                }
+
+                lastRawResult = currentCalculatedResult;
+                lastFormattedResultString = currentCalculatedResult.toFixed(8);
+                resultDisplay.textContent = `결과: ${lastFormattedResultString}`;
+                updateActionButtonsState();
+            });
+
+            numberInput.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                numberInput.classList.add('drag-over');
+            });
+
+            numberInput.addEventListener('dragleave', (e) => {
+                numberInput.classList.remove('drag-over');
+            });
+
+            numberInput.addEventListener('drop', (e) => {
+                e.preventDefault();
+                numberInput.classList.remove('drag-over');
+                const draggedData = e.dataTransfer.getData('text/plain');
+                if (draggedData && !isNaN(parseFloat(draggedData))) {
+                    numberInput.value = parseFloat(draggedData);
+                    numberInput.focus(); 
+                }
+            });
+
+            resultDisplay.addEventListener('dragstart', (e) => {
+                if (lastRawResult !== null) {
+                    e.dataTransfer.setData('text/plain', lastRawResult);
+                    e.dataTransfer.effectAllowed = 'copy';
+                } else {
+                    e.preventDefault();
+                }
+            });
+
+            sendToInputButton.addEventListener('click', () => {
+                if (lastRawResult !== null){
+                    numberInput.value = lastRawResult;
+                    numberInput.focus();
+                }
+            });
+
+            async function copyToClipboard(text){
+                try{
+                    if (navigator.clipboard && window.isSecureContext){
+                        await navigator.clipboard.writeText(text);
+                        return true;
+                    }
+                }catch(_) {}
+
+                const prevActive = document.activeElement;
+                const prevX = window.scrollX || window.pageXOffset;
+                const prevY = window.scrollY || window.pageYOffset;
+
+                try{
+                    const ta = document.createElement('textarea');
+                    ta.value = text;
+                    ta.setAttribute('readonly','');
+                    ta.style.position = 'absolute';
+                    ta.style.top = prevY + 'px';
+                    ta.style.left = '-9999px'; 
+                    ta.style.height = '1px';
+                    ta.style.width = '1px';
+                    ta.style.opacity = '0';
+                    ta.style.pointerEvents = 'none';
+                    ta.tabIndex = -1;
+
+                    document.body.appendChild(ta);
+                    ta.focus();
+                    ta.select();
+                    if (typeof ta.setSelectionRange === 'function'){
+                        ta.setSelectionRange(0, ta.value.length);
+                    }
+
+                    const ok = document.execCommand('copy');
+                    document.body.removeChild(ta);
+
+                    if (prevActive && typeof prevActive.focus === 'function'){
+                        prevActive.focus();
+                    }
+                    window.scrollTo(prevX, prevY);
+
+                    return ok;
+                }catch(_){
+                    window.scrollTo(prevX, prevY);
+                    return false;
+                }
+            }
+
+            copyResultButton.addEventListener('click', async () => {
+                if (!lastFormattedResultString) return;
+
+                const originalText = copyResultButton.textContent;
+                copyResultButton.disabled = true;
+
+                const ok = await copyToClipboard(lastFormattedResultString);
+
+                if (ok){
+                    copyResultButton.textContent = '복사됨!';
+                }else{
+                    alert('결과 복사에 실패했습니다.');
+                }
+
+                setTimeout(() => {
+                    copyResultButton.textContent = originalText;
+                    copyResultButton.disabled = false;
+                }, 1200);
+            });
+
+            numberInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter'){ calculateButton.click(); }
+            });
+
+            updateActionButtonsState();
+        });
+    </script>
+</body>
+</html>

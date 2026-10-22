@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>피타고라스 음률 시각화 (완전5도 & 완전8도)</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #f4f6f9;
+            --text-color: #333;
+            --white-key: #ffffff;
+            --black-key: #2c3e50;
+            --key-border: #bdc3c7;
+            
+            /* Highlight Colors */
+            --color-selected: #f1c40f;      /* 노란색 (선택됨) */
+            --color-p5-up: #3498db;         /* 파란색 (완전5도 위) */
+            --color-p5-down: #2980b9;       /* 짙은 파란색 (완전5도 아래) */
+            --color-p8-up: #e74c3c;         /* 빨간색 (완전8도 위) */
+            --color-p8-down: #c0392b;       /* 짙은 빨간색 (완전8도 아래) */
+        }
+
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0;
+            padding: 40px 20px;
+        }
+
+        h1 {
+            margin-top: 0;
+            color: #2c3e50;
+            text-align: center;
+        }
+
+        .description {
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 1.1em;
+            color: #555;
+            line-height: 1.6;
+        }
+
+        .legend {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 500;
+            font-size: 0.95em;
+        }
+
+        .color-box {
+            width: 16px;
+            height: 16px;
+            border-radius: 4px;
+            border: 1px solid rgba(0,0,0,0.1);
+        }
+
+        /* Keyboard Container */
+        .keyboard-wrapper {
+            width: 100%;
+            max-width: 1150px;
+            overflow-x: auto; /* 화면이 좁을 때 스크롤 허용 */
+            padding-bottom: 20px;
+        }
+
+        .piano {
+            position: relative;
+            height: 300px; /* 건반 높이 */
+            margin: 0 auto;
+            border: 4px solid #333;
+            border-radius: 8px;
+            background-color: #333;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            /* JS에서 너비 자동 계산됨 */
+        }
+
+        /* Key Styles */
+        .key {
+            position: absolute;
+            top: 0;
+            box-sizing: border-box;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            transition: background-color 0.2s;
+            user-select: none;
+        }
+
+        .key.white {
+            width: 50px;
+            height: 100%;
+            background-color: var(--white-key);
+            border-right: 1px solid var(--key-border);
+            border-bottom-left-radius: 4px;
+            border-bottom-right-radius: 4px;
+            z-index: 1;
+            align-items: flex-end;
+            padding-bottom: 15px;
+        }
+        
+        .key.white:first-child { border-left: 1px solid var(--key-border); border-bottom-left-radius: 6px; }
+        .key.white:last-child { border-right: none; border-bottom-right-radius: 6px; }
+
+        .key.black {
+            width: 30px;
+            height: 60%; /* 흰 건반 높이의 60% */
+            background-color: var(--black-key);
+            border-bottom-left-radius: 4px;
+            border-bottom-right-radius: 4px;
+            z-index: 2;
+            align-items: flex-end;
+            padding-bottom: 15px;
+            color: white;
+        }
+
+        .key:active {
+            filter: brightness(0.9);
+        }
+
+        /* Labels */
+        .note-label {
+            font-size: 0.85em;
+            font-weight: 500;
+            pointer-events: none; /* 텍스트 클릭 방지 */
+        }
+
+        .black .note-label {
+            font-size: 0.75em;
+            color: rgba(255,255,255,0.8);
+        }
+
+        /* Highlight Classes */
+        .key.selected { background-color: var(--color-selected) !important; color: #333; border: 2px solid #e67e22; z-index: 3;}
+        .key.p5-up { background-color: var(--color-p5-up) !important; color: white; z-index: 3;}
+        .key.p5-down { background-color: var(--color-p5-down) !important; color: white; z-index: 3;}
+        .key.p8-up { background-color: var(--color-p8-up) !important; color: white; z-index: 3;}
+        .key.p8-down { background-color: var(--color-p8-down) !important; color: white; z-index: 3;}
+
+        /* Interval Badge (pops up above the text) */
+        .interval-badge {
+            position: absolute;
+            top: -35px; /* 건반 위에 표시 */
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.75em;
+            font-weight: bold;
+            color: white;
+            white-space: nowrap;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s;
+            z-index: 10;
+        }
+        
+        .key.white .interval-badge { top: auto; bottom: 40px; } /* 흰 건반은 텍스트 위쪽에 배치 */
+        .key.black .interval-badge { top: auto; bottom: 35px; } 
+
+        .key.selected .interval-badge { background-color: #e67e22; opacity: 1; }
+        .key.p5-up .interval-badge { background-color: var(--color-p5-up); opacity: 1; }
+        .key.p5-down .interval-badge { background-color: var(--color-p5-down); opacity: 1; }
+        .key.p8-up .interval-badge { background-color: var(--color-p8-up); opacity: 1; }
+        .key.p8-down .interval-badge { background-color: var(--color-p8-down); opacity: 1; }
+
+    </style>
+</head>
+<body>
+
+    <h1>피타고라스 음률 시각화 웹앱</h1>
+    <p class="description">
+        아무 건반이나 클릭해 보세요. <br>
+        선택한 건반을 기준으로 <b>완전5도(7반음)</b>와 <b>완전8도(12반음)</b> 간격의 건반이 표시됩니다.
+    </p>
+
+    <div class="legend">
+        <div class="legend-item"><div class="color-box" style="background: var(--color-selected);"></div> 기준음</div>
+        <div class="legend-item"><div class="color-box" style="background: var(--color-p5-up);"></div> 완전5도 위</div>
+        <div class="legend-item"><div class="color-box" style="background: var(--color-p5-down);"></div> 완전5도 아래</div>
+        <div class="legend-item"><div class="color-box" style="background: var(--color-p8-up);"></div> 완전8도 위</div>
+        <div class="legend-item"><div class="color-box" style="background: var(--color-p8-down);"></div> 완전8도 아래</div>
+    </div>
+
+    <div class="keyboard-wrapper">
+        <div class="piano" id="piano"></div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const piano = document.getElementById('piano');
+            
+            // C3 (MIDI 48) ~ C6 (MIDI 84) 설정
+            const startMidi = 48; 
+            const endMidi = 84;
+            
+            const notes = ['도', '도#', '레', '레#', '미', '파', '파#', '솔', '솔#', '라', '라#', '시'];
+            
+            const whiteKeyWidth = 50;
+            let whiteKeyCount = 0;
+
+            // 1단계: 건반 생성 및 배치
+            for (let midi = startMidi; midi <= endMidi; midi++) {
+                const noteIndex = midi % 12;
+                const octave = Math.floor(midi / 12) - 1; // MIDI 60 = C4
+                const noteName = notes[noteIndex];
+                const isBlack = noteName.includes('#');
+
+                const key = document.createElement('div');
+                key.classList.add('key');
+                key.classList.add(isBlack ? 'black' : 'white');
+                key.dataset.midi = midi;
+
+                // 라벨 추가 (도4, 레4 등)
+                const label = document.createElement('div');
+                label.className = 'note-label';
+                label.textContent = `${noteName}${octave}`;
+                key.appendChild(label);
+
+                // 인터벌 뱃지 엘리먼트 (기본은 숨김 상태)
+                const badge = document.createElement('div');
+                badge.className = 'interval-badge';
+                key.appendChild(badge);
+
+                // 위치 계산 (절대 위치 지정)
+                if (!isBlack) {
+                    key.style.left = `${whiteKeyCount * whiteKeyWidth}px`;
+                    whiteKeyCount++;
+                } else {
+                    // 검은 건반은 이전 흰 건반과 다음 흰 건반 사이에 배치
+                    const blackKeyWidth = 30;
+                    key.style.left = `${(whiteKeyCount * whiteKeyWidth) - (blackKeyWidth / 2)}px`;
+                }
+
+                // 클릭 이벤트 등록
+                key.addEventListener('click', () => highlightIntervals(midi));
+
+                piano.appendChild(key);
+            }
+
+            // 피아노 컨테이너 전체 너비 설정
+            piano.style.width = `${whiteKeyCount * whiteKeyWidth}px`;
+
+
+            // 2단계: 인터랙션 로직
+            function highlightIntervals(selectedMidi) {
+                // 1. 기존 강조 효과 모두 초기화
+                document.querySelectorAll('.key').forEach(key => {
+                    key.classList.remove('selected', 'p5-up', 'p5-down', 'p8-up', 'p8-down');
+                    const badge = key.querySelector('.interval-badge');
+                    if(badge) badge.textContent = '';
+                });
+
+                // 2. 기준음 강조
+                const baseKey = document.querySelector(`.key[data-midi="${selectedMidi}"]`);
+                if (baseKey) {
+                    baseKey.classList.add('selected');
+                    baseKey.querySelector('.interval-badge').textContent = '기준';
+                }
+
+                // 3. 관계음 강조 (함수 활용)
+                // 완전5도 = 반음 7개 간격
+                // 완전8도 = 반음 12개 간격
+                applyHighlight(selectedMidi + 7, 'p5-up', '완전5도 위');
+                applyHighlight(selectedMidi - 7, 'p5-down', '완전5도 아래');
+                applyHighlight(selectedMidi + 12, 'p8-up', '완전8도 위');
+                applyHighlight(selectedMidi - 12, 'p8-down', '완전8도 아래');
+            }
+
+            function applyHighlight(targetMidi, className, badgeText) {
+                const targetKey = document.querySelector(`.key[data-midi="${targetMidi}"]`);
+                // 건반 범위를 벗어난 음은 표시하지 않음
+                if (targetKey) {
+                    targetKey.classList.add(className);
+                    const badge = targetKey.querySelector('.interval-badge');
+                    if (badge) badge.textContent = badgeText;
+                }
+            }
+        });
+    </script>
+</body>
+</html>

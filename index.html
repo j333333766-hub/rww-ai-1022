@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>읽걷쓰AI 연수 다시 보기 · 10.22</title>
+  <meta name="description" content="2026. 10. 22. 읽걷쓰AI 기반 학생 평가와 학습코칭 연수 내용을 다시 보는 사이트">
+  <link rel="icon" href="emoji/1f44b.svg">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="quiz.css">
+  <link rel="stylesheet" href="theme.css">
+  <style>
+    .toc { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; margin-top: 12px; }
+    .toc-item { display: flex; gap: 10px; align-items: center; padding: 10px 12px; border: 1.5px solid var(--line); border-radius: 12px; background: #fff; color: inherit; text-decoration: none; font-weight: 700; font-size: 14.5px; }
+    .toc-item b { flex: none; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; background: linear-gradient(135deg, #005baa, #be0081); color: #fff; font-size: 14px; }
+    .toc-item:hover { border-color: #be0081; }
+    #parts > div > .card, #slot-calc .card, #slot-pyth .card, #slot-seat .card, #mood-form, #quiz-card { scroll-margin-top: 12px; }
+    .ar-box { margin-top: 16px; }
+  </style>
+</head>
+<body>
+  <header class="top">
+    <div class="top-inner">
+      <div>
+        <h1>읽걷쓰AI 기반 학생 평가와 학습코칭</h1>
+        <div class="sub">2026. 10. 22.(목) 중등 수업 전문성 역량강화 직무연수 · 다시 보기</div>
+      </div>
+      <div class="top-chars" aria-hidden="true"><img src="img/ch-read.png" alt=""><img src="img/ch-walk.png" alt=""><img src="img/ch-write.png" alt=""></div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="card">
+      <div class="hello"><span class="rws"><b>읽음</b> · <b>걷구</b> · <b>쓰득</b>과 함께한 연수</span></div>
+      <span class="step-tag">연수 다시 보기</span>
+      <h2>함께해 주셔서 고맙습니다</h2>
+      <p class="lead">연수 때 단계마다 열었던 활동을 모두 펼쳐 두었어요. 직접 골라 보고 풀어 볼 수 있고, 고른 것은 이 브라우저에만 남아요. 「모두의 결과」는 10월 22일 연수 당일 결과(이름 없이)예요.</p>
+      <nav class="toc" id="toc" aria-label="연수 단계"></nav>
+      <div class="ar-box">
+        <div class="ar-qr" id="ar-qr" aria-label="3D 웹뷰어 QR 코드"></div>
+        <div class="ar-txt">
+          <b>연수 장소를 3D로 둘러보세요</b>
+          <span>인천스타트업파크 3D 웹뷰어 · 휴대폰에서는 AR로도 볼 수 있어요</span>
+          <a href="https://j333333766-hub.github.io/startup-park-ar/" target="_blank" rel="noopener">j333333766-hub.github.io/startup-park-ar/</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- 1단계: 오늘 기분 -->
+    <div id="step-mood">
+      <section class="card hidden" id="mood-form">
+        <span class="step-tag">1단계 · 사회정서학습(SEL) · 나의 기분을 말해요</span>
+        <h2>오늘 기분이 어떠세요?</h2>
+        <p class="lead">연수를 여는 활동이었어요. 골라 보면 그날 연수생들의 결과 옆에 내 응답이 더해져요.</p>
+        <div class="mood-grid" id="mood-grid"></div>
+        <div id="emo-step" class="hidden">
+          <h3>지금의 감정을 선택해 보세요 <span class="muted" style="font-weight:400;font-size:14px">— 가장 주된 감정 하나</span></h3>
+          <div class="chips" id="emo-chips"></div>
+        </div>
+        <div id="health-step" class="hidden">
+          <h3>오늘 식사는 했나요?</h3>
+          <div class="yn" id="meal"></div>
+          <h3>오늘 건강 상태는 어떠세요?</h3>
+          <div class="mood-grid" id="health-grid"></div>
+        </div>
+        <div style="margin-top:20px"><button class="btn primary big" id="mood-submit" disabled>제출하기</button></div>
+      </section>
+
+      <section class="card hidden" id="mood-result">
+        <div class="result-head">
+          <h2>우리의 기분</h2>
+          <span class="count-pill" id="r-count">0명</span>
+        </div>
+        <div class="mine-box hidden" id="mine"></div>
+        <div class="mood-ai hidden" id="mood-ai" aria-live="polite"></div>
+        <h3>기분</h3>
+        <div id="r-mood"></div>
+        <h3>감정 낱말 <span class="muted" style="font-weight:400;font-size:13px">많이 고를수록 크게 · 점선은 내가 고른 것</span></h3>
+        <div class="cloud" id="r-cloud"></div>
+        <h3>저녁 식사 <span class="muted" style="font-weight:400;font-size:13px">연수 당일 저녁</span></h3>
+        <div id="r-meal"></div>
+        <h3>건강 상태</h3>
+        <div id="r-health"></div>
+        <div style="margin-top:18px" id="again-row"><button class="btn" id="again">다시 고르기</button></div>
+      </section>
+    </div>
+
+    <div id="slot-calc"></div>
+
+    <!-- 3단계: 읽걷쓰AI 함께 생각하기(영상 + 퀴즈) -->
+    <div id="step-quiz">
+      <section class="card" id="quiz-card">
+        <span class="step-tag">3단계 · 4P · H-A-H 영상과 퀴즈</span>
+        <h2>읽걷쓰AI, 함께 생각해 봐요</h2>
+        <p class="lead">2분 30초 영상을 보고 10문제를 한 문제씩 풀어 보세요. 낱말 끌어 놓기·OX·객관식·선 잇기가 섞여 있어요. 다 풀면 연수 당일 정답률과 비교해 볼 수 있어요.</p>
+        <video id="quiz-video" class="qz-video" controls preload="none" playsinline poster="video/rwwai-4p-hah.jpg" src="video/rwwai-4p-hah.mp4"></video>
+        <div id="quiz-form" class="qz-form"></div>
+      </section>
+      <section class="card hidden" id="quiz-result">
+        <div class="result-head">
+          <h2>퀴즈 결과</h2>
+          <span class="count-pill" id="qr-score">0 / 10</span>
+          <span class="muted" id="qr-avg"></span>
+        </div>
+        <div id="qr-hero" class="qr-hero"></div>
+        <h3>문항별 정답률 <span class="muted" style="font-weight:400;font-size:13px">10.22 연수생 결과</span></h3>
+        <div id="qr-rates"></div>
+        <h3>내 답과 해설</h3>
+        <div id="qr-mine"></div>
+        <div style="margin-top:16px"><button class="btn" id="quiz-again">다시 풀기</button></div>
+      </section>
+    </div>
+
+    <div id="slot-pyth"></div>
+    <div id="slot-seat"></div>
+
+    <!-- 6단계(2부)·7단계(3부) -->
+    <div id="parts"></div>
+
+    <div class="foot"><span class="rws">질문하고 상상하며 걷는 <b>읽</b>·<b>걷</b>·<b>쓰</b></span>강사: 구월중학교 조창현 · 캐릭터: 인천광역시교육청 읽·걷·쓰 · 이모지 그림: Twemoji (CC-BY 4.0)</div>
+  </main>
+  <div class="toast" id="toast"></div>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
+  <script type="module" src="js/site.js"></script>
+</body>
+</html>

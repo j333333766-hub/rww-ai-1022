@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>피타고라스 음률과 12평균율 탐구 앱</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+    <style>
+        :root {
+            --bg-color: #f4f6f9;
+            --panel-bg: #ffffff;
+            --text-color: #2c3e50;
+            --border-color: #dcdde1;
+            --primary-color: #3498db;
+            --secondary-color: #2ecc71;
+            --pyth-color: #e74c3c;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 30px 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        h1 { margin-top: 0; text-align: center; color: var(--text-color); }
+        .panel {
+            background: var(--panel-bg);
+            padding: 25px 35px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            width: 100%;
+            max-width: 1000px;
+            margin-bottom: 25px;
+        }
+
+        /* --- 1. 수학 수식 및 표 영역 --- */
+        .math-section { text-align: center; }
+        .formula-box {
+            font-size: 1.3em;
+            background-color: #e8f4f8;
+            padding: 15px;
+            border-radius: 8px;
+            display: inline-block;
+            margin-bottom: 20px;
+            color: #2980b9;
+        }
+        
+        #btn-show-table {
+            background-color: #34495e;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-family: 'Noto Sans KR', sans-serif;
+            font-weight: 600;
+            transition: background-color 0.2s;
+        }
+        #btn-show-table:hover { background-color: #2c3e50; }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            display: none;
+        }
+        th, td { padding: 12px; border: 1px solid var(--border-color); text-align: center; }
+        th { background-color: #f8f9fa; font-weight: 600; }
+        .highlight-row { background-color: #fff3cd; font-weight: bold; color: #856404; }
+
+        /* --- 2. 주파수 계산기 영역 --- */
+        .calc-section {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            flex-wrap: wrap;
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+        }
+        input[type="number"], select {
+            padding: 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-size: 1.05em;
+            font-family: 'Poppins', sans-serif;
+        }
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.1s, opacity 0.2s;
+            color: white;
+            background-color: var(--primary-color);
+        }
+        button:active { transform: translateY(2px); }
+        .btn-green { background-color: var(--secondary-color); }
+        .btn-red { background-color: var(--pyth-color); }
+        
+        #calc-result {
+            padding: 10px 20px;
+            background-color: #fff;
+            border: 2px dashed var(--primary-color);
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: grab;
+            min-width: 120px;
+            text-align: center;
+        }
+        #calc-result:active { cursor: grabbing; }
+
+        /* --- 3. 피아노 건반 영역 --- */
+        .keyboard-wrapper {
+            width: 100%;
+            overflow-x: auto;
+            padding: 20px 10px;
+            background-color: #ecf0f1;
+            border-radius: 8px;
+        }
+        .piano {
+            position: relative;
+            height: 320px; 
+            margin: 0 auto;
+            border: 4px solid #2c3e50;
+            border-radius: 8px;
+            background-color: #2c3e50;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+        }
+        .key {
+            position: absolute;
+            top: 0;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            align-items: center;
+            user-select: none;
+            transition: background-color 0.2s, transform 0.1s;
+            cursor: pointer;
+        }
+        .key.white {
+            width: 75px; 
+            height: 100%;
+            background-color: #ffffff;
+            border-right: 1px solid var(--border-color);
+            border-bottom-left-radius: 4px;
+            border-bottom-right-radius: 4px;
+            z-index: 1;
+            padding-bottom: 8px;
+        }
+        .key.black {
+            width: 52px; 
+            height: 65%;
+            background-color: #34495e;
+            border-bottom-left-radius: 4px;
+            border-bottom-right-radius: 4px;
+            z-index: 2;
+            padding-bottom: 8px;
+            color: white;
+        }
+
+        .key-color-1 { background-color: #e74c3c !important; color: white !important; }
+        .key-color-2 { background-color: #3498db !important; color: white !important; }
+        .key-color-3 { background-color: #f1c40f !important; color: #333 !important; }
+
+        .note-label { 
+            font-size: 0.9em; 
+            font-weight: bold; 
+            margin-bottom: 5px; 
+            pointer-events: none; 
+            text-align: center;
+            line-height: 1.2;
+        }
+        .black .note-label { 
+            color: rgba(255,255,255,0.8); 
+            font-size: 0.8em; 
+        }
+
+        .freq-input {
+            width: 95%; 
+            font-size: 0.85em; 
+            text-align: center;
+            padding: 4px 1px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            background-color: white;
+            color: black;
+            font-family: 'Poppins', sans-serif;
+            box-sizing: border-box;
+        }
+        
+        .freq-input::-webkit-outer-spin-button,
+        .freq-input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        .freq-input[type=number] {
+            -moz-appearance: textfield;
+        }
+
+        .freq-input.drag-over {
+            background-color: #e8f5e9;
+            border-color: #2ecc71;
+            box-shadow: 0 0 5px #2ecc71;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>피타고라스 음률과 12평균율 탐구</h1>
+
+    <div class="panel math-section">
+        <div class="formula-box">
+            $$ \sqrt[12]{2} \approx 1.059463094 $$
+        </div>
+        <br>
+        <button id="btn-show-table">거듭제곱 표 확인하기 ∨</button>
+
+        <table id="power-table">
+            <thead>
+                <tr>
+                    <th>거듭제곱 (n)</th>
+                    <th>수식</th>
+                    <th>결과값 (근삿값)</th>
+                    <th>비교 및 특징</th>
+                </tr>
+            </thead>
+            <tbody>
+                <script>
+                    const ROOT12 = Math.pow(2, 1/12);
+                    for (let i = 2; i <= 12; i++) {
+                        const val = Math.pow(ROOT12, i);
+                        let rowClass = "";
+                        let compare = "-";
+                        
+                        if (i === 7) {
+                            rowClass = "class='highlight-row'";
+                            compare = `완전5도 비율 <b>3/2 (1.5)</b>와 거의 일치! (오차가 피타고라스 콤마를 만듦)`;
+                        } else if (i === 12) {
+                            rowClass = "class='highlight-row'";
+                            compare = `정확히 <b>2</b> 도달 (1옥타브 완성)`;
+                        }
+
+                        document.write(`
+                            <tr ${rowClass}>
+                                <td>${i}</td>
+                                <td>\\( \\left(\\sqrt[12]{2}\\right)^{${i}} \\)</td>
+                                <td>${val.toFixed(6)}</td>
+                                <td>${compare}</td>
+                            </tr>
+                        `);
+                    }
+                </script>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="panel">
+        <div class="calc-section">
+            <input type="number" id="base-freq" value="110" step="any" placeholder="주파수(Hz)">
+            <select id="op-select">
+                <option value="1.5">× 1.5 (완전5도)</option>
+                <option value="2">× 2 (옥타브)</option>
+            </select>
+            <button id="btn-calc" class="btn-green">계산하기</button>
+            <div id="calc-result" draggable="true" title="이 값을 건반 아래 칸으로 드래그하세요!">결과 대기</div>
+            <button id="btn-send-back">결과값 보내기 ↺</button>
+        </div>
+        <p style="text-align:center; font-size:0.9em; color:#7f8c8d; margin-top:15px;">
+            💡 <b>Tip:</b> 계산된 결과값을 마우스로 드래그하여 건반의 빈칸에 넣을 수 있습니다.
+        </p>
+    </div>
+
+    <div class="panel">
+        <p style="text-align:center; font-size:0.95em; color:#7f8c8d; margin-top: 0;">
+            건반 범위: <b>A2 (110Hz) ~ C10 (7옥타브 이상)</b><br>
+            * 건반을 클릭하면 색상이 변경됩니다. (빨강 → 파랑 → 노랑 → 기본)
+        </p>
+
+        <div class="keyboard-wrapper" id="keyboard-wrapper">
+            <div class="piano" id="piano"></div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            
+            // --- 1. 표 표시 토글 (접기/펴기) ---
+            const btnShowTable = document.getElementById('btn-show-table');
+            const powerTable = document.getElementById('power-table');
+            let isTableVisible = false;
+
+            btnShowTable.addEventListener('click', () => {
+                isTableVisible = !isTableVisible;
+                if (isTableVisible) {
+                    powerTable.style.display = 'table';
+                    btnShowTable.textContent = '거듭제곱 표 접기 ∧';
+                } else {
+                    powerTable.style.display = 'none';
+                    btnShowTable.textContent = '거듭제곱 표 확인하기 ∨';
+                }
+            });
+
+            // --- 2. 계산기 로직 ---
+            const baseFreqInput = document.getElementById('base-freq');
+            const opSelect = document.getElementById('op-select');
+            const btnCalc = document.getElementById('btn-calc');
+            const calcResultDiv = document.getElementById('calc-result');
+            const btnSendBack = document.getElementById('btn-send-back');
+            let currentResultValue = null;
+
+            btnCalc.addEventListener('click', () => {
+                const baseVal = parseFloat(baseFreqInput.value);
+                const opVal = parseFloat(opSelect.value);
+                if (isNaN(baseVal)) {
+                    calcResultDiv.textContent = "입력 오류";
+                    currentResultValue = null;
+                    return;
+                }
+                currentResultValue = baseVal * opVal;
+                calcResultDiv.textContent = currentResultValue.toFixed(2);
+            });
+
+            btnSendBack.addEventListener('click', () => {
+                if (currentResultValue !== null) {
+                    baseFreqInput.value = currentResultValue.toFixed(2);
+                    baseFreqInput.focus();
+                }
+            });
+
+            calcResultDiv.addEventListener('dragstart', (e) => {
+                if (currentResultValue !== null) {
+                    e.dataTransfer.setData('text/plain', currentResultValue.toFixed(2));
+                    e.dataTransfer.effectAllowed = 'copy';
+                } else {
+                    e.preventDefault();
+                }
+            });
+
+            // --- 3. 피아노 건반 생성 (A2 ~ C10) ---
+            const piano = document.getElementById('piano');
+            
+            const startMidi = 45; 
+            const endMidi = 132;  
+            const notes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+            const krNotes = ['도', '도#', '레', '레#', '미', '파', '파#', '솔', '솔#', '라', '라#', '시'];
+
+            const whiteKeyWidth = 75; 
+            const blackKeyWidth = 52; 
+            let whiteKeyCount = 0;
+
+            for (let midi = startMidi; midi <= endMidi; midi++) {
+                const noteIndex = midi % 12;
+                const octave = Math.floor(midi / 12) - 1;
+                const isBlack = notes[noteIndex].includes('#');
+
+                const key = document.createElement('div');
+                key.classList.add('key', isBlack ? 'black' : 'white');
+                key.dataset.midi = midi;
+                key.dataset.colorState = "0";
+
+                // 라벨 추가 (영문 + 한글 줄바꿈)
+                const label = document.createElement('div');
+                label.className = 'note-label';
+                label.innerHTML = `${notes[noteIndex]}${octave}<br><span style="font-size:0.85em; font-weight:500;">(${krNotes[noteIndex]})</span>`;
+                key.appendChild(label);
+
+                // 주파수 입력칸 추가
+                const input = document.createElement('input');
+                input.type = 'number';
+                input.className = 'freq-input';
+                input.placeholder = 'Hz';
+                
+                // A2 (MIDI 45) 건반일 경우 주파수 기본값 110 채우기
+                if (midi === 45) {
+                    input.value = "110";
+                }
+
+                input.addEventListener('click', (e) => e.stopPropagation()); 
+                
+                input.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    input.classList.add('drag-over');
+                });
+                input.addEventListener('dragleave', () => input.classList.remove('drag-over'));
+                input.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    input.classList.remove('drag-over');
+                    const data = e.dataTransfer.getData('text/plain');
+                    if (data && !isNaN(data)) {
+                        input.value = data;
+                    }
+                });
+
+                key.appendChild(input);
+
+                // 건반 위치 배치
+                if (!isBlack) {
+                    key.style.left = `${whiteKeyCount * whiteKeyWidth}px`;
+                    whiteKeyCount++;
+                } else {
+                    key.style.left = `${(whiteKeyCount * whiteKeyWidth) - (blackKeyWidth / 2)}px`;
+                }
+
+                // 건반 색상 순환 이벤트
+                key.addEventListener('click', () => {
+                    let state = parseInt(key.dataset.colorState);
+                    state = (state + 1) % 4;
+                    key.dataset.colorState = state;
+                    
+                    key.classList.remove('key-color-1', 'key-color-2', 'key-color-3');
+                    if (state !== 0) {
+                        key.classList.add(`key-color-${state}`);
+                    }
+                });
+
+                piano.appendChild(key);
+            }
+            
+            piano.style.width = `${whiteKeyCount * whiteKeyWidth}px`;
+        });
+    </script>
+</body>
+</html>

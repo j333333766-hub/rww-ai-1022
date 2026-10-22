@@ -1,0 +1,3418 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>자리배치·체크리스트 체험 · 읽걷쓰AI 연수</title>
+  <link rel="icon" href="../emoji/1fa91.svg">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&display=swap" rel="stylesheet">
+  <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+  
+  <style>
+    /* ==================== 기본 변수 ==================== */
+    :root {
+      --bg-color: #f8f9fa;
+      --seat-bg: #ffffff;
+      --border-color: #dadce0;
+      --primary-color: #4285f4;
+      --gap-size: 10px;
+    }
+
+    body {
+      font-family: 'Noto Sans KR', sans-serif;
+      background-color: var(--bg-color);
+      margin: 0;
+      padding: 15px;
+      height: 100vh;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ==================== 상단 컨트롤 패널 ==================== */
+    .control-panel {
+      background: white;
+      padding: 10px 16px;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      margin-bottom: 10px;
+      display: flex;
+      /* ★ 해상도와 상관없이 항상 한 줄 — 줄바꿈하지 않는다.
+         그래도 안 들어갈 만큼 좁으면 가로로 스크롤한다(버튼이 잘려 사라지지 않게). */
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      overflow-y: hidden;
+      gap: 8px;
+      align-items: center;
+      flex-shrink: 0;
+    }
+
+    /* 셀렉트·버튼은 찌그러지지 않게 하고, 제목과 안내문만 줄어들게 한다 */
+    .control-panel > * { flex-shrink: 0; }
+    .control-panel h3,
+    .control-panel #status-msg {
+      flex-shrink: 1;
+      min-width: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    /* h3 기본 상하 여백(1em)이 남아 있으면 한 줄인데도 패널이 두 줄처럼 높아진다 */
+    .control-panel h3 { margin: 0; font-size: 16px; }
+    .control-panel .divider-v { margin: 0 4px !important; }
+
+    /* 한 줄에 담기도록 살짝 조밀하게 */
+    .control-panel select,
+    .control-panel button {
+      padding: 7px 10px;
+      font-size: 13px;
+    }
+    .control-panel .toggle-wrapper { font-size: 13px; }
+
+    /* 얇은 스크롤바 (평소엔 거의 안 보인다) */
+    .control-panel::-webkit-scrollbar { height: 6px; }
+    .control-panel::-webkit-scrollbar-thumb { background: #ddd; border-radius: 3px; }
+
+    select, button, input {
+      padding: 8px 12px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+
+    button {
+      transition: all 0.2s;
+      background: white;
+      font-weight: 600;
+    }
+    button:hover {
+      background-color: #f1f1f1;
+      transform: translateY(-1px);
+    }
+
+    .btn-primary {
+      background-color: var(--primary-color);
+      color: white;
+      border: none;
+    }
+    .btn-primary:hover { background-color: #357abd; }
+
+    .btn-history {
+      background-color: #34a853;
+      color: white;
+      border: none;
+    }
+    .btn-history:hover { background-color: #2d8f45; }
+
+    /* ==================== 메인 레이아웃 ==================== */
+    .main-container {
+      display: flex;
+      gap: 15px;
+      align-items: stretch;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* 왼쪽: 학생 명단 패널 */
+    .student-list-panel {
+      width: 220px;
+      background: white;
+      padding: 15px;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      overflow-y: auto;
+      flex-shrink: 0;
+    }
+
+    .student-item {
+      padding: 8px;
+      border-bottom: 1px solid #eee;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .student-item.assigned {
+      color: #aaa;
+      text-decoration: line-through;
+      opacity: 0.6;
+    }
+
+    /* 오른쪽: 자리배치 영역 */
+    #capture-area {
+      flex: 1;
+      background: white;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+    }
+
+    /* ==================== 칠판 (교탁) 디자인 추가 ==================== */
+    .blackboard {
+      width: 200px;
+      background-color: #333;
+      color: white;
+      text-align: center;
+      padding: 6px 0;
+      margin: 10px auto 20px auto;
+      border-radius: 6px;
+      font-weight: bold;
+      font-size: 14px;
+      letter-spacing: 2px;
+    }
+
+    /* ==================== 학생용 보기 모드 CSS ==================== */
+    .student-view-mode .blackboard {
+      order: 1; /* 교탁을 위로 올림 */
+      margin-bottom: 30px;
+    }
+    
+    .student-view-mode #seat-grid {
+      order: 2; /* 그리드를 교탁 아래로 */
+      direction: ltr; /* 그리드 흐름을 좌측 상단부터 시작 */
+      transform: none; /* 상하 반전 해제 */
+    }
+
+    .student-view-mode .seat-box {
+      transform: none; /* 상하 반전 해제 */
+      direction: ltr;
+    }
+
+    .student-view-mode .seat-box.drag-over {
+      transform: scale(1.02); /* drag-over 시에도 반전되지 않도록 덮어쓰기 */
+    }
+
+
+    /* ==================== 그리드 레이아웃 ==================== */
+    .seat-container {
+      display: grid;
+      width: 100%;
+      align-content: start;
+      margin: 0 auto;
+      padding-bottom: 50px;
+      /* 교탁 시점(오른쪽 하단부터 시작)을 위해 추가된 속성 (교사용 기본) */
+      direction: rtl; 
+      transform: scaleY(-1);
+    }
+
+    /* 6X6 일반형 */
+    .seat-container.layout-6x6-row {
+      grid-template-columns: repeat(6, 1fr);
+      grid-auto-rows: minmax(80px, 1fr);
+      gap: var(--gap-size);
+    }
+
+    /* 6X6 분단형 */
+    .seat-container.layout-6x6-group {
+      grid-template-columns: 1fr 1fr 0.3fr 1fr 1fr 0.3fr 1fr 1fr;
+      grid-auto-rows: minmax(80px, 1fr);
+      gap: var(--gap-size) 0;
+    }
+    .seat-container.layout-6x6-group .seat-box:nth-child(6n+1) { grid-column: 1; }
+    .seat-container.layout-6x6-group .seat-box:nth-child(6n+2) { grid-column: 2; }
+    .seat-container.layout-6x6-group .seat-box:nth-child(6n+3) { grid-column: 4; }
+    .seat-container.layout-6x6-group .seat-box:nth-child(6n+4) { grid-column: 5; }
+    .seat-container.layout-6x6-group .seat-box:nth-child(6n+5) { grid-column: 7; }
+    .seat-container.layout-6x6-group .seat-box:nth-child(6n+6) { grid-column: 8; }
+
+    /* 7X5 배치 */
+    .seat-container.layout-7x5 {
+      grid-template-columns: repeat(5, 1fr);
+      grid-auto-rows: minmax(80px, 1fr);
+      gap: var(--gap-size);
+    }
+
+    /* 5X6 분단형 */
+    .seat-container.layout-5x6-group {
+      grid-template-columns: 1fr 1fr 0.3fr 1fr 1fr 0.3fr 1fr 1fr;
+      grid-auto-rows: minmax(80px, 1fr);
+      gap: var(--gap-size) 0;
+    }
+    .seat-container.layout-5x6-group .seat-box:nth-child(6n+1) { grid-column: 1; }
+    .seat-container.layout-5x6-group .seat-box:nth-child(6n+2) { grid-column: 2; }
+    .seat-container.layout-5x6-group .seat-box:nth-child(6n+3) { grid-column: 4; }
+    .seat-container.layout-5x6-group .seat-box:nth-child(6n+4) { grid-column: 5; }
+    .seat-container.layout-5x6-group .seat-box:nth-child(6n+5) { grid-column: 7; }
+    .seat-container.layout-5x6-group .seat-box:nth-child(6n+6) { grid-column: 8; }
+
+    /* ==================== 좌석 박스 ==================== */
+    .seat-box {
+      width: 100%;
+      height: 100%;
+      min-height: 80px;
+      background: var(--seat-bg);
+      border: 2px solid var(--border-color);
+      border-radius: 8px;
+      position: relative;
+      cursor: grab;
+      user-select: none;
+      box-sizing: border-box;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      transition: all 0.1s;
+      /* 그리드 전체를 반전시켰으므로 내부 글씨는 다시 올바르게 보이도록 추가 (교사용 기본) */
+      transform: scaleY(-1);
+      direction: ltr; 
+    }
+    .seat-box:active { cursor: grabbing; }
+    .seat-box.drag-over {
+      border: 2px dashed var(--primary-color);
+      background-color: #e8f0fe;
+      transform: scaleY(-1) scale(1.02);
+      z-index: 5;
+    }
+    .seat-box.locked {
+      background-color: #fff8e1;
+      border-color: #ffb300;
+    }
+    .seat-box.empty-seat-fixed {
+      background-color: #eee;
+      border-style: solid;
+    }
+    .seat-box:not(.has-student) {
+      border-style: dashed;
+      background-color: #fcfcfc;
+      cursor: default;
+    }
+
+    /* ==================== 텍스트 모드 (기본) ==================== */
+    .seat-photo { display: none; }
+
+    .seat-info {
+      text-align: center;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .seat-no {
+      font-size: clamp(14px, 1.5vw, 18px);
+      color: #555;
+      margin-bottom: 2px;
+      line-height: 1;
+      font-weight: bold;
+    }
+
+    .seat-name {
+      font-size: clamp(18px, 2.5vw, 28px);
+      font-weight: 800;
+      color: #333;
+      line-height: 1.1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 95%;
+    }
+
+    /* ==================== 사진 모드 ==================== */
+    .seat-container.show-photo-mode .seat-box.has-student {
+      flex-direction: row !important;
+      align-items: stretch;
+      padding: 0 !important;
+    }
+
+    .seat-container.show-photo-mode .seat-photo {
+      display: block;
+      width: 60px;
+      height: 100%;
+      object-fit: cover;
+      object-position: top center;
+      border: none;
+      border-right: 1px solid #eee;
+      margin: 0;
+      flex-shrink: 0;
+    }
+
+    .seat-container.show-photo-mode .seat-photo-placeholder {
+      display: flex !important;
+    }
+
+    .seat-container.show-photo-mode .has-student .seat-info {
+      flex: 1;
+      display: flex;
+      flex-direction: row;
+      flex-wrap: wrap;
+      justify-content: center;
+      align-items: center;
+      gap: 4px;
+      padding: 4px;
+      background: white;
+      z-index: 2;
+    }
+
+    .seat-container.show-photo-mode .has-student .seat-no {
+      display: inline-block;
+      font-size: 16px;
+      color: var(--primary-color);
+      font-weight: 900;
+      margin: 0;
+    }
+
+    .seat-container.show-photo-mode .has-student .seat-name {
+      display: inline-block;
+      font-size: 18px;
+      font-weight: 900;
+      color: #000;
+      line-height: 1.1;
+      text-align: center;
+    }
+
+    .seat-photo-placeholder {
+      display: none;
+      width: 60px;
+      height: 100%;
+      background: #f5f5f5;
+      border-right: 1px solid #eee;
+      flex-shrink: 0;
+      justify-content: center;
+      align-items: center;
+      color: #ccc;
+      font-size: 24px;
+    }
+
+    /* ==================== 좌석 컨트롤 아이콘 ==================== */
+    .seat-ctrl {
+      position: absolute;
+      opacity: 0.4;
+      transition: opacity 0.2s;
+      z-index: 10;
+      padding: 2px;
+      background: rgba(255,255,255,0.8);
+      border-radius: 4px;
+    }
+    .seat-box:hover .seat-ctrl { opacity: 1; }
+    .seat-lock { top: 2px; left: 2px; font-size: 14px; }
+    .seat-lock.checked { color: #ffb300; opacity: 1; }
+    .seat-delete { top: 2px; right: 2px; font-size: 14px; color: #d93025; }
+
+    .toggle-wrapper {
+      display: flex;
+      align-items: center;
+      margin-left: 15px;
+      font-size: 14px;
+      font-weight: bold;
+      cursor: pointer;
+      user-select: none;
+    }
+    .toggle-wrapper input { margin-right: 5px; cursor: pointer; }
+
+    /* ==================== 모달 공통 ==================== */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0,0,0,0.5);
+      z-index: 1000;
+      justify-content: center;
+      align-items: center;
+    }
+
+    /* ==================== 전체 관찰기록 ==================== */
+    .btn-records { background: #1565c0; color: #fff; }
+    .btn-records:hover { background: #0d47a1; }
+
+    .rec-box {
+      background: #fff; border-radius: 14px; width: 900px; max-width: 96vw;
+      height: 86vh; display: flex; flex-direction: column; overflow: hidden;
+      box-shadow: 0 10px 40px rgba(0,0,0,.3);
+    }
+    .rec-head {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 18px; background: #1565c0; color: #fff;
+    }
+    .rec-head h3 { margin: 0; font-size: 17px; }
+
+    .rec-filters {
+      display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+      padding: 12px 18px; border-bottom: 1px solid #eee; background: #fafafa;
+    }
+    .rec-filters select { padding: 6px 8px; }
+    .rec-filters .rec-spacer { flex: 1; }
+    .rec-summary { font-size: 13px; color: #555; }
+
+    .rec-tabs { display: flex; gap: 4px; padding: 10px 18px 0; }
+    .rec-tab {
+      padding: 8px 16px; border-radius: 8px 8px 0 0; cursor: pointer;
+      background: #eee; color: #666; font-weight: 700; font-size: 14px; border: none;
+    }
+    .rec-tab.active { background: #1565c0; color: #fff; }
+
+    .rec-body { flex: 1; overflow: auto; padding: 0 18px 12px; }
+    .rec-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .rec-table th {
+      position: sticky; top: 0; background: #f5f5f5; text-align: left;
+      padding: 9px 8px; border-bottom: 2px solid #ddd; white-space: nowrap; z-index: 1;
+    }
+    .rec-table th.sortable { cursor: pointer; user-select: none; }
+    .rec-table th.sortable:hover { background: #e8eaf6; }
+    .rec-table td { padding: 8px; border-bottom: 1px solid #f0f0f0; }
+    .rec-table tr:hover td { background: #fafbff; }
+    .rec-score { font-weight: 700; text-align: right; white-space: nowrap; }
+    .rec-score.plus { color: #2e7d32; }
+    .rec-score.minus { color: #c62828; }
+    .rec-score.zero { color: #999; }
+    .rec-rank { color: #999; width: 34px; }
+    .rec-empty { text-align: center; padding: 40px; color: #aaa; }
+    .rec-gone { color: #b71c1c; font-size: 11px; margin-left: 4px; }
+    .rec-actions { display: flex; gap: 8px; padding: 12px 18px; border-top: 1px solid #eee; }
+    .rec-actions button { padding: 10px 16px; font-weight: 700; }
+    .btn-csv { background: #2e7d32; color: #fff; }
+
+    /* ==================== 명렬표 동기화 ==================== */
+    .btn-sync { background: #00695c; color: #fff; }
+    .btn-sync:hover { background: #004d40; }
+
+    .sync-box {
+      background: #fff; border-radius: 14px; width: 520px; max-width: 94vw;
+      max-height: 88vh; display: flex; flex-direction: column; overflow: hidden;
+      box-shadow: 0 10px 40px rgba(0,0,0,.3);
+    }
+    .sync-head {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 18px; background: #00695c; color: #fff;
+    }
+    .sync-head h3 { margin: 0; font-size: 17px; }
+    .sync-body { padding: 16px 18px; overflow-y: auto; }
+    .sync-status { color: #555; line-height: 1.7; }
+
+    .sync-counts { display: flex; gap: 8px; margin-bottom: 12px; }
+    .sync-count {
+      flex: 1; text-align: center; padding: 12px 6px; border-radius: 10px; background: #f5f5f5;
+    }
+    .sync-count b { display: block; font-size: 24px; font-weight: 900; line-height: 1.2; }
+    .sync-count span { font-size: 12px; color: #777; }
+    .sync-count.add b { color: #2e7d32; }
+    .sync-count.chg b { color: #ef6c00; }
+    .sync-count.del b { color: #c62828; }
+
+    .sync-group { margin-bottom: 10px; }
+    .sync-group h5 { margin: 0 0 4px; font-size: 13px; color: #555; }
+    .sync-names {
+      font-size: 13px; color: #333; background: #fafafa; border-radius: 8px;
+      padding: 8px 10px; line-height: 1.8; max-height: 140px; overflow-y: auto;
+    }
+    .sync-warn {
+      background: #fff8e1; border-left: 4px solid #ffb300; padding: 10px 12px;
+      border-radius: 6px; font-size: 13px; color: #6d4c41; line-height: 1.7; margin-top: 10px;
+    }
+    .sync-actions { display: flex; gap: 8px; padding: 12px 18px; border-top: 1px solid #eee; }
+    .sync-actions button { flex: 1; padding: 11px; font-size: 15px; font-weight: 700; }
+    .btn-apply { background: #00695c; color: #fff; }
+    .btn-apply:disabled { background: #b0bec5; cursor: not-allowed; }
+
+    /* 발표자로 뽑힌 학생의 자리 강조 (엄지척까지 누르면 초록으로 바뀐다) */
+    .seat-box.is-presenter {
+      outline: 3px solid #ab47bc;
+      outline-offset: -3px;
+      box-shadow: 0 0 0 3px rgba(171, 71, 188, .18);
+    }
+    .seat-box.is-presenter-praised {
+      outline-color: #2e7d32;
+      box-shadow: 0 0 0 3px rgba(46, 125, 50, .18);
+    }
+
+    /* ==================== 발표자 뽑기 ==================== */
+    .btn-draw { background: #7b1fa2; color: #fff; }
+    .btn-draw:hover { background: #6a1b9a; }
+
+    .presenter-box {
+      background: #fff; border-radius: 14px; width: 420px; max-width: 92vw;
+      max-height: 88vh; display: flex; flex-direction: column; overflow: hidden;
+      box-shadow: 0 10px 40px rgba(0,0,0,.3);
+    }
+    .presenter-head {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 18px; background: #7b1fa2; color: #fff;
+    }
+    .presenter-head h3 { margin: 0; font-size: 17px; }
+    .presenter-stage {
+      padding: 26px 18px; text-align: center; border-bottom: 1px solid #eee;
+    }
+    .presenter-stage .ps-photo {
+      width: 92px; height: 92px; border-radius: 50%; object-fit: cover;
+      border: 4px solid #e1bee7; margin-bottom: 10px;
+    }
+    .presenter-stage .ps-placeholder {
+      width: 92px; height: 92px; border-radius: 50%; margin: 0 auto 10px;
+      background: #f3e5f5; color: #ce93d8; display: flex; align-items: center; justify-content: center;
+    }
+    .presenter-stage .ps-placeholder .material-icons { font-size: 46px; }
+    .presenter-stage .ps-name { font-size: 26px; font-weight: 900; color: #4a148c; }
+    .presenter-stage .ps-hint { color: #999; font-size: 13px; margin-top: 6px; }
+    .presenter-stage.rolling .ps-name { color: #ba68c8; }
+
+    .presenter-actions { display: flex; gap: 8px; padding: 12px 18px; }
+    .presenter-actions button { flex: 1; padding: 11px; font-size: 15px; font-weight: 700; }
+    .presenter-remain { padding: 0 18px 10px; color: #777; font-size: 13px; text-align: center; }
+
+    .presenter-list { overflow-y: auto; padding: 0 12px 14px; }
+    .presenter-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 10px; border-radius: 8px; background: #faf6fc; margin-bottom: 6px;
+    }
+    .presenter-row .pr-order {
+      width: 22px; height: 22px; border-radius: 50%; background: #ce93d8; color: #fff;
+      font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .presenter-row .pr-name { flex: 1; font-weight: 700; }
+    .presenter-row .pr-thumb {
+      border: none; background: #fff; border-radius: 8px; cursor: pointer;
+      width: 38px; height: 34px; display: flex; align-items: center; justify-content: center;
+      color: #bbb; box-shadow: 0 1px 3px rgba(0,0,0,.12);
+    }
+    .presenter-row .pr-thumb:hover { color: #7b1fa2; }
+    .presenter-row .pr-thumb.done { background: #7b1fa2; color: #fff; cursor: default; }
+    .presenter-row .pr-thumb.saving { color: #ccc; cursor: wait; }
+
+    /* ==================== 학생 상세 모달 ==================== */
+    .detail-modal .modal-content {
+      width: 420px;
+      max-height: 85vh;
+      padding: 0;
+      overflow: hidden;
+      background: white;
+      border-radius: 12px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* 모달 헤더 */
+    .detail-header {
+      padding: 18px 20px 14px;
+      border-bottom: 1px solid #eee;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      flex-shrink: 0;
+    }
+
+    .detail-header-photo {
+      width: 52px; height: 52px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 2px solid var(--primary-color);
+      flex-shrink: 0;
+    }
+
+    .detail-header-photo-placeholder {
+      width: 52px; height: 52px;
+      border-radius: 50%;
+      background: #f0f0f0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      color: #bbb;
+      font-size: 28px;
+      flex-shrink: 0;
+      border: 2px solid #ddd;
+    }
+
+    .detail-header-info { flex: 1; }
+    .detail-header-info .name { font-size: 18px; font-weight: 800; color: #222; }
+    .detail-header-info .sub { font-size: 12px; color: #888; margin-top: 2px; }
+
+    .detail-header .close-btn {
+      width: 32px; height: 32px;
+      border: none;
+      background: #f5f5f5;
+      border-radius: 50%;
+      font-size: 18px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #666;
+      flex-shrink: 0;
+      padding: 0;
+    }
+    .detail-header .close-btn:hover { background: #e0e0e0; }
+
+    /* 모달 탭 */
+    .detail-tabs {
+      display: flex;
+      border-bottom: 2px solid #eee;
+      flex-shrink: 0;
+    }
+
+    .detail-tab {
+      flex: 1;
+      padding: 12px;
+      text-align: center;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      color: #888;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -2px;
+      transition: all 0.2s;
+    }
+    .detail-tab.active {
+      color: var(--primary-color);
+      border-bottom-color: var(--primary-color);
+    }
+    .detail-tab:hover { color: #333; }
+    .detail-tab.disabled { opacity: 0.4; pointer-events: none; }
+
+    .detail-body { flex: 1; overflow-y: auto; }
+    .tab-panel { display: none; padding: 16px 20px; }
+    .tab-panel.active { display: block; }
+
+    /* ==================== 체크리스트 항목 ==================== */
+    .checklist-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      margin-bottom: 6px;
+      border-radius: 8px;
+      border: 1px solid #eee;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .checklist-item:hover {
+      border-color: var(--primary-color);
+      background: #f7f9ff;
+    }
+
+    .checklist-item .cl-icon {
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      background: #e8f0fe;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--primary-color);
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+
+    .checklist-item .cl-info { flex: 1; }
+    .checklist-item .cl-name { font-size: 14px; font-weight: 600; color: #333; }
+
+    .checklist-item .cl-score-badge {
+      padding: 3px 10px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .cl-score-positive { background: #e6f4ea; color: #1e7e34; }
+    .cl-score-negative { background: #fce8e6; color: #c62828; }
+    .cl-score-zero { background: #f5f5f5; color: #888; }
+
+    /* 사진 첨부 알림 배지 */
+    .photo-attached-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: #e8f0fe;
+      color: var(--primary-color);
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 600;
+      margin-bottom: 10px;
+    }
+
+    /* ==================== 사진 첨부 패널 ==================== */
+    .photo-upload-area {
+      border: 2px dashed #ddd;
+      border-radius: 12px;
+      padding: 24px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-bottom: 12px;
+    }
+    .photo-upload-area:hover {
+      border-color: var(--primary-color);
+      background: #f7f9ff;
+    }
+    .photo-upload-area .material-icons { font-size: 40px; color: #bbb; }
+    .photo-upload-area p { margin: 8px 0 0; font-size: 13px; color: #888; }
+
+    .photo-preview-area { margin-top: 10px; text-align: center; }
+    .photo-preview-area img {
+      max-width: 100%;
+      max-height: 200px;
+      border-radius: 8px;
+      border: 1px solid #eee;
+    }
+
+    .photo-btns {
+      display: flex;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .photo-btns button {
+      flex: 1;
+      padding: 10px;
+      font-size: 13px;
+      border-radius: 8px;
+    }
+
+    /* ==================== 관찰기록 패널 ==================== */
+    .record-item {
+      padding: 10px 0;
+      border-bottom: 1px solid #f0f0f0;
+      font-size: 13px;
+    }
+    .record-item:last-child { border-bottom: none; }
+    .record-item .record-time { color: #999; font-size: 11px; }
+    .record-item .record-check { font-weight: 600; margin: 3px 0; }
+
+    .cumulative-badge {
+      display: inline-block;
+      padding: 6px 16px;
+      border-radius: 20px;
+      font-size: 15px;
+      font-weight: 800;
+      margin-bottom: 12px;
+    }
+
+    /* 관찰기록 요약 카드 */
+    .records-summary-card {
+      background: linear-gradient(135deg, #f8f9ff 0%, #eef1ff 100%);
+      border: 1px solid #d8deff;
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .summary-score-box {
+      text-align: center;
+      flex-shrink: 0;
+    }
+    .summary-score-label {
+      font-size: 11px;
+      color: #888;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+    .summary-score-value {
+      font-size: 28px;
+      font-weight: 900;
+      line-height: 1;
+    }
+    .summary-score-positive { color: #1e7e34; }
+    .summary-score-negative { color: #c62828; }
+    .summary-score-zero { color: #888; }
+
+    .summary-stats {
+      flex: 1;
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+    }
+    .summary-stat {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #555;
+    }
+
+    /* 삭제 버튼 CSS */
+    .delete-record-btn {
+      background: none;
+      border: none;
+      color: #999;
+      cursor: pointer;
+      padding: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 4px;
+      transition: all 0.2s;
+    }
+    .delete-record-btn:hover {
+      background: #fce8e6;
+      color: #d93025;
+    }
+    .delete-record-btn .material-icons {
+      font-size: 18px;
+    }
+
+    /* ==================== 좌석배정 패널 ==================== */
+    .assign-item {
+      padding: 10px 12px;
+      cursor: pointer;
+      border-bottom: 1px solid #f0f0f0;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 14px;
+    }
+    .assign-item:hover { background-color: #e8f0fe; }
+    .assign-item.clear-item { color: #d93025; font-weight: 700; }
+
+    /* ==================== 기타 UI ==================== */
+    #print-title {
+      text-align: center;
+      font-size: 24px;
+      font-weight: bold;
+      margin-bottom: 20px;
+      display: none;
+      order: 0; /* 항상 맨 위에 유지 */
+    }
+
+    #status-msg {
+      font-size: 13px;
+      color: #34a853;
+      font-weight: bold;
+      margin-left: 10px;
+      display: none;
+    }
+
+    /* 사진 로딩 진행 바 */
+    .photo-progress-bar {
+      display: none;
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 4px;
+      background: #e0e0e0;
+      z-index: 3000;
+    }
+    .photo-progress-bar.active { display: block; }
+
+    .photo-progress-fill {
+      height: 100%;
+      background: var(--primary-color);
+      width: 0%;
+      transition: width 0.3s ease;
+      border-radius: 0 2px 2px 0;
+    }
+
+    /* 토스트 알림 */
+    .toast {
+      position: fixed;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #323232;
+      color: white;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      z-index: 5000;
+      opacity: 0;
+      transition: opacity 0.3s;
+      pointer-events: none;
+    }
+    .toast.show { opacity: 1; }
+
+    /* 저장 중 스피너 */
+    .saving-spinner {
+      display: none;
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(255,255,255,0.7);
+      z-index: 4000;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .saving-spinner.active { display: flex; }
+
+    .saving-spinner .spinner-ring {
+      width: 36px; height: 36px;
+      border: 3px solid #e0e0e0;
+      border-top-color: var(--primary-color);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .saving-spinner .spinner-text { font-size: 14px; color: #555; }
+  </style>
+</head>
+<body>
+  <div id="demo-bar" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:8px 16px;background:linear-gradient(120deg,#4f46e5,#7c3aed);color:#fff;font-family:'Noto Sans KR',sans-serif;font-size:14px;">
+    <b>연수 체험판</b><a href="../" style="color:#fff">← 연수 다시 보기</a>
+    <span>학년 <b>1학년</b> → 반(1~5반)을 고르세요 · 학생 이름·사진은 AI로 만든 가상 학생이에요 · 기록은 이 브라우저에만 저장돼요</span>
+    <span style="flex:1"></span>
+    <button id="demo-reset" onclick="resetDemo()" style="background:rgba(255,255,255,.18);color:#fff;border:1px solid rgba(255,255,255,.5);border-radius:8px;padding:5px 12px;cursor:pointer;font:inherit;">내 체험 기록 지우기</button>
+  </div>
+
+  <div id="photo-progress" class="photo-progress-bar">
+    <div id="photo-progress-fill" class="photo-progress-fill"></div>
+  </div>
+
+  <div class="control-panel">
+    <h3>자리배치 프로그램</h3>
+    <select id="grade-select" onchange="loadClasses()"><option>학년</option></select>
+    <select id="class-select" onchange="handleClassChange()"><option>반</option></select>
+    <div class="divider-v" style="width:1px; height:26px; background:#ddd;"></div>
+    <select id="layout-select" onchange="changeLayout()">
+      <option value="layout-6x6-row" selected>6X6 (1줄형)</option>
+      <option value="layout-6x6-group">6X6 (분단형)</option>
+      <option value="layout-7x5">7X5 배치</option>
+      <option value="layout-5x6-group">5X6 (분단형)</option>
+    </select>
+    <label class="toggle-wrapper">
+      <input type="checkbox" id="photo-toggle" onchange="togglePhotoMode()"> 🖼️ 사진 보기
+    </label>
+    
+    <!-- ★ 학생용 보기 토글 추가 -->
+    <label class="toggle-wrapper">
+      <input type="checkbox" id="student-view-toggle" onchange="toggleStudentView()"> 🧑‍🎓 학생용 보기
+    </label>
+
+    <span id="status-msg"></span>
+    <div style="flex:1;"></div>
+    <button class="btn-records" onclick="openRecords()" title="관찰기록 전체 보기 · CSV 내려받기">📋 전체 기록</button>
+    <button class="btn-draw" onclick="openPresenter()" style="margin-left:10px;">🎤 발표자 뽑기</button>
+    <button class="btn-history" onclick="loadLatestHistory()" style="margin-left:10px;">🔄 최근 기록 불러오기</button>
+    <button class="btn-primary" onclick="startRandomAssignment()" style="margin-left:10px;">⚡ 랜덤 배치</button>
+    <button onclick="saveAsImage()">📷 저장</button>
+    <button onclick="saveData()">💾 기록</button>
+  </div>
+
+  <div class="main-container">
+    <div class="student-list-panel">
+      <h4>명단 (<span id="total-count">0</span>명)</h4>
+      <div id="roster-list"></div>
+    </div>
+    <div id="capture-area">
+      <div id="print-title"></div>
+      <div id="seat-grid" class="seat-container layout-6x6-row"></div>
+      
+      <div class="blackboard">칠판 (교탁)</div>
+
+    </div>
+  </div>
+
+  <div id="detail-modal" class="modal-overlay detail-modal" onclick="if(event.target===this) closeDetailModal()">
+    <div class="modal-content" onclick="event.stopPropagation()">
+      
+      <div class="detail-header">
+        <div id="detail-photo-area"></div>
+        <div class="detail-header-info">
+          <div id="detail-name" class="name"></div>
+          <div id="detail-sub" class="sub"></div>
+        </div>
+        <button class="close-btn" onclick="closeDetailModal()">
+          <span class="material-icons">close</span>
+        </button>
+      </div>
+
+      <div class="detail-tabs">
+        <div class="detail-tab active" data-tab="tab-checklist" onclick="switchTab(this)">체크리스트</div>
+        <div class="detail-tab" data-tab="tab-photo" onclick="switchTab(this)">사진첨부</div>
+        <div class="detail-tab" data-tab="tab-assign" onclick="switchTab(this)">좌석배정</div>
+        <div class="detail-tab" data-tab="tab-records" onclick="switchTab(this)">관찰기록</div>
+      </div>
+
+      <div class="detail-body">
+
+        <div id="tab-checklist" class="tab-panel active">
+          <div id="checklist-photo-badge" style="display:none;"></div>
+          <div id="checklist-list"></div>
+          <div id="checklist-empty" style="text-align:center; color:#aaa; padding:20px; display:none;">
+            체크리스트표 시트에 항목을 추가해주세요.
+          </div>
+        </div>
+
+        <div id="tab-photo" class="tab-panel">
+          <div class="photo-upload-area" onclick="document.getElementById('photo-input').click()">
+            <span class="material-icons">add_a_photo</span>
+            <p>사진 촬영 또는 앨범에서 선택</p>
+          </div>
+          <input type="file" id="photo-input" accept="image/*" capture="environment"
+                 style="display:none;" onchange="handlePhotoSelected(event)">
+          <div id="photo-preview-area" class="photo-preview-area" style="display:none;">
+            <img id="photo-preview-img" src="">
+            <div class="photo-btns">
+              <button onclick="cancelPhoto()" style="background:#f5f5f5;">취소</button>
+              <button onclick="submitPhotoOnly()" class="btn-primary">📷 사진 기록 저장</button>
+            </div>
+            <p style="font-size:11px; color:#888; margin-top:8px;">
+              또는 체크리스트 탭에서 항목을 선택하면<br>사진과 함께 기록됩니다.
+            </p>
+          </div>
+        </div>
+
+        <div id="tab-assign" class="tab-panel">
+          <div id="assign-list"></div>
+        </div>
+
+        <div id="tab-records" class="tab-panel">
+          <div id="records-summary" style="display:none;">
+            <div class="records-summary-card">
+              <div class="summary-score-box">
+                <div class="summary-score-label">누적 점수</div>
+                <div id="summary-score-value" class="summary-score-value">0점</div>
+              </div>
+              <div class="summary-stats">
+                <div class="summary-stat">
+                  <span class="material-icons" style="font-size:16px; color:#1e7e34;">add_circle</span>
+                  <span id="summary-plus-count">0</span>건
+                </div>
+                <div class="summary-stat">
+                  <span class="material-icons" style="font-size:16px; color:#c62828;">remove_circle</span>
+                  <span id="summary-minus-count">0</span>건
+                </div>
+                <div class="summary-stat">
+                  <span class="material-icons" style="font-size:16px; color:#4285f4;">photo_camera</span>
+                  <span id="summary-photo-count">0</span>건
+                </div>
+              </div>
+            </div>
+          </div>
+          <div id="records-list"></div>
+          <div id="records-empty" style="text-align:center; color:#aaa; padding:20px; display:none;">
+            아직 관찰기록이 없습니다.
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <div id="saving-spinner" class="saving-spinner">
+    <div class="spinner-ring"></div>
+    <div class="spinner-text">저장 중...</div>
+  </div>
+
+
+  <script>
+    /* ================================================================
+       Firebase 연결
+       ================================================================
+       로그인을 쓰지 않는 대신, 데이터는 추측 불가능한 키 아래에만 둔다.
+       키는 주소의 ?k= 로 들어오며 코드에 넣지 않는다 — 넣으면 주소만 알면
+       누구나 읽을 수 있게 되어 기존 앱스스크립트보다 노출이 커진다.
+       ================================================================ */
+    /* ================================================================
+       연수 체험판 (2026-10-22 읽걷쓰AI 연수)
+       ================================================================
+       · 학생은 AI로 만든 가상 학생 150명(1학년 1~5반)이고, 명단·사진은 정적 파일이다.
+       · 연수생마다 보이지 않는 익명 계정이 생기고, 자리배치 기록·관찰기록은
+         /seatdemo/{내 계정} 아래에만 쌓인다 — 다른 선생님의 체험과 섞이지 않는다.
+       · 화면 코드는 실제 앱과 같고, 아래 api 몇 개만 바꿨다.
+       ================================================================ */
+    // 깃허브 다시보기판(10/23): Firebase 대신 이 브라우저(localStorage)에 저장하는 작은 Firestore 흉내.
+    // 화면 코드가 쓰는 모양(collection/doc/where/orderBy/limit/get/set/add/delete/batch)만 만든다.
+    var db = (function() {
+      var KEY = 'rww1022.seatdemo', mem = null;
+      function load() { if (mem) return mem; try { mem = JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { mem = {}; } return mem; }
+      function save() { try { localStorage.setItem(KEY, JSON.stringify(mem)); } catch (e) { /* 용량이 넘치면 이번 화면에서만 기억 */ } }
+      function newId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 10); }
+      function docSnap(path, id) {
+        var d = load()[path] && load()[path][id];
+        return { id: id, exists: !!d, data: function() { return d ? JSON.parse(JSON.stringify(d)) : undefined; }, ref: docRef(path, id) };
+      }
+      function docRef(path, id) {
+        id = id || newId();
+        return {
+          id: id,
+          collection: function(name) { return collRef(path + '/' + id + '/' + name); },
+          get: function() { return Promise.resolve(docSnap(path, id)); },
+          set: function(data) { var m = load(); (m[path] = m[path] || {})[id] = JSON.parse(JSON.stringify(data)); save(); return Promise.resolve(); },
+          delete: function() { var m = load(); if (m[path]) { delete m[path][id]; save(); } return Promise.resolve(); }
+        };
+      }
+      function query(path, conds, order, lim) {
+        return {
+          where: function(f, op, v) { return query(path, conds.concat([[f, v]]), order, lim); },
+          orderBy: function(f, dir) { return query(path, conds, [f, dir], lim); },
+          limit: function(n) { return query(path, conds, order, n); },
+          get: function() {
+            var all = load()[path] || {};
+            var ids = Object.keys(all).filter(function(id) { return conds.every(function(c) { return all[id][c[0]] === c[1]; }); });
+            if (order) ids.sort(function(a, b) { var x = all[a][order[0]], y = all[b][order[0]]; return (x > y ? 1 : x < y ? -1 : 0) * (order[1] === 'desc' ? -1 : 1); });
+            if (lim) ids = ids.slice(0, lim);
+            var docs = ids.map(function(id) { return docSnap(path, id); });
+            return Promise.resolve({ docs: docs, empty: !docs.length, size: docs.length, forEach: function(f) { docs.forEach(f); } });
+          }
+        };
+      }
+      function collRef(path) {
+        var q = query(path, [], null, 0);
+        q.doc = function(id) { return docRef(path, id); };
+        q.add = function(data) { var r = docRef(path); return r.set(data).then(function() { return r; }); };
+        return q;
+      }
+      return {
+        collection: function(name) { return collRef(name); },
+        batch: function() {
+          var ops = [];
+          return { set: function(r, d) { ops.push(function() { return r.set(d); }); }, delete: function(r) { ops.push(function() { return r.delete(); }); },
+                   commit: function() { return Promise.all(ops.map(function(f) { return f(); })); } };
+        }
+      };
+    })();
+    var root = db.collection('seatdemo').doc('local');
+    var DEMO_STRUCTURE = { '1': ['1', '2', '3', '4', '5'] };
+    var DEMO_CHECKLIST = [
+      { item: '숙제를 하지 않음', score: -1 }, { item: '발표를 잘함', score: 1 }, { item: '친구를 도와줌', score: 1 },
+      { item: '수업 시간에 엎드림', score: -1 }, { item: '수업 시간에 다른 교과 공부를 함', score: -1 },
+      { item: '수업 시간에 학원 문제집을 풂', score: -1 }, { item: '준비물을 챙기지 않음', score: -1 },
+      { item: '기타 칭찬받을 행동', score: 1 }, { item: '기타 벌점받을 행동', score: -1 }
+    ];
+    var demoRoster = null;
+    function demoStudents_() {
+      if (!demoRoster) demoRoster = fetch('students.json').then(function(r) { return r.json(); });
+      return demoRoster;
+    }
+    function pad2_(n) { return String(n).padStart(2, '0'); }
+    // 로그인(익명)이 끝나야 내 칸(root)이 정해진다. 모든 api 호출은 이것을 기다린다.
+    var demoReady = Promise.resolve();
+
+    /** 내 체험 기록(자리배치·관찰기록·사진) 지우기 */
+    function resetDemo() {
+      var btn = document.getElementById('demo-reset');
+      if (!btn.dataset.armed) {
+        btn.dataset.armed = '1'; btn.textContent = '한 번 더 누르면 지워요';
+        setTimeout(function() { delete btn.dataset.armed; btn.textContent = '내 체험 기록 지우기'; }, 3000);
+        return;
+      }
+      delete btn.dataset.armed;
+      btn.disabled = true; btn.textContent = '지우는 중…';
+      demoReady.then(function() {
+        return Promise.all(['observations', 'obsphotos', 'history'].map(function(name) {
+          return root.collection(name).get().then(function(snap) {
+            var batch = db.batch();
+            snap.forEach(function(d) { batch.delete(d.ref); });
+            return batch.commit();
+          });
+        }));
+      }).then(function() {
+        btn.disabled = false; btn.textContent = '내 체험 기록 지우기';
+        showToast('체험 기록을 모두 지웠어요');
+      }).catch(function(err) {
+        btn.disabled = false; btn.textContent = '내 체험 기록 지우기';
+        showToast('지우지 못했어요: ' + err.message);
+      });
+    }
+
+    function sid_(grade, cls, no) {
+      return String(grade).trim() + '-' + String(cls).trim() + '-' + no;
+    }
+
+    /** 시트에 쓰던 'yyyy-MM-dd HH:mm:ss'(한국시간) 형식 문자열 */
+    function stamp_(ms) {
+      var d = new Date(ms);
+      var p = function(n) { return String(n).padStart(2, '0'); };
+      return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) +
+             ' ' + p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
+    }
+
+    /**
+     * 사진을 화면 표시에 충분한 크기로 줄인다.
+     * 스마트폰 원본을 그대로 넣으면 Firestore 문서 한도(1MB)를 넘긴다.
+     */
+    function shrinkPhoto_(dataUri, maxSide, quality) {
+      return new Promise(function(resolve, reject) {
+        var img = new Image();
+        img.onload = function() {
+          var w = img.width, h = img.height;
+          var scale = Math.min(1, maxSide / Math.max(w, h));
+          var cv = document.createElement('canvas');
+          cv.width = Math.round(w * scale);
+          cv.height = Math.round(h * scale);
+          cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+          resolve(cv.toDataURL('image/jpeg', quality || 0.8));
+        };
+        img.onerror = function() { reject(new Error('이미지를 읽지 못했습니다.')); };
+        img.src = dataUri;
+      });
+    }
+
+    /* ================================================================
+       서버 호출 계층
+       예전 google.script.run 함수들과 같은 이름·같은 반환 모양을 유지한다.
+       화면 코드는 그대로 두고 이 계층만 Firestore 로 바꿨다.
+       ================================================================ */
+    var api = {
+
+      getInitData: function() {
+        return DEMO_STRUCTURE;
+      },
+
+      getStudents: function(grade, cls) {
+        return demoStudents_().then(function(list) {
+          return list.filter(function(x) { return String(x.cls) === String(cls).trim(); }).map(function(x) {
+            return { no: x.no, name: x.name, photo: '1', studentId: '1' + pad2_(x.cls) + pad2_(x.no), full: x.no + '. ' + x.name };
+          });
+        });
+      },
+
+      getPhotoBatch: function(grade, cls, studentNos) {
+        var map = {};
+        studentNos.forEach(function(no) { map[no] = 'photos/1-' + String(cls).trim() + '-' + no + '.jpg'; });
+        return map;
+      },
+
+      getChecklistItems: function() {
+        return DEMO_CHECKLIST.slice();
+      },
+
+      /** 예전 시그니처를 유지하되, 업로드 대신 화면용 크기로 줄여서 돌려준다. */
+      uploadObservationPhoto: function(base64Data) {
+        return shrinkPhoto_(base64Data, 1024, 0.8);
+      },
+
+      saveObservation: function(studentId, studentName, checkItem, score, photoData) {
+        return api._addObservation(studentId, studentName, checkItem, Number(score) || 0, photoData);
+      },
+
+      savePhotoOnlyObservation: function(studentId, studentName, photoData) {
+        return api._addObservation(studentId, studentName, '(사진 첨부)', 0, photoData);
+      },
+
+      _addObservation: function(studentId, studentName, checkItem, score, photoData) {
+        var ms = Date.now();
+        var ref = root.collection('observations').doc();
+
+        var rec = {
+          ms: ms,
+          ts: stamp_(ms),
+          studentId: String(studentId).trim(),
+          name: studentName,
+          item: checkItem,
+          score: score,
+          hasPhoto: !!photoData
+        };
+
+        var chain = ref.set(rec);
+        if (photoData) {
+          // 사진은 따로 둬서 기록 목록을 열 때 같이 딸려오지 않게 한다.
+          chain = chain.then(function() {
+            return root.collection('obsphotos').doc(ref.id).set({ d: photoData });
+          });
+        }
+
+        return chain
+          .then(function() { return api._cumulative(studentId); })
+          .then(function(cum) {
+            return { message: photoData && checkItem === '(사진 첨부)' ? '사진 기록 완료!' : '기록 저장 완료!', cumulative: cum };
+          });
+      },
+
+      /** 누적점수는 저장하지 않고 그때그때 더한다 — 시트판의 경쟁 조건이 사라진다. */
+      _cumulative: function(studentId) {
+        return root.collection('observations')
+          .where('studentId', '==', String(studentId).trim())
+          .get()
+          .then(function(snap) {
+            var sum = 0;
+            snap.forEach(function(doc) { sum += Number(doc.data().score) || 0; });
+            return sum;
+          });
+      },
+
+      getStudentObservations: function(studentId) {
+        return root.collection('observations')
+          .where('studentId', '==', String(studentId).trim())
+          .get()
+          .then(function(snap) {
+            var rows = [];
+            snap.forEach(function(doc) {
+              var r = doc.data();
+              rows.push({
+                id: doc.id,
+                ms: Number(r.ms) || 0,
+                timestamp: r.ts,
+                checkItem: r.item,
+                score: Number(r.score) || 0,
+                photoUrl: r.hasPhoto ? doc.id : ''   // 사진 본체는 열어볼 때 따로 받는다
+              });
+            });
+            rows.sort(function(a, b) { return a.ms - b.ms; });
+
+            var cum = rows.reduce(function(a, r) { return a + r.score; }, 0);
+            return { records: rows, cumulative: cum };
+          });
+      },
+
+      getObservationPhoto: function(recordId) {
+        if (!recordId) return Promise.resolve('');
+        return root.collection('obsphotos').doc(String(recordId)).get()
+          .then(function(d) { return d.exists ? d.data().d : ''; })
+          .catch(function() { return ''; });
+      },
+
+      deleteObservationRecord: function(studentId, timestampString) {
+        return root.collection('observations')
+          .where('studentId', '==', String(studentId).trim())
+          .where('ts', '==', String(timestampString).trim())
+          .limit(1)
+          .get()
+          .then(function(snap) {
+            if (snap.empty) throw new Error('해당 기록을 찾을 수 없습니다.');
+            var doc = snap.docs[0];
+            return doc.ref.delete().then(function() {
+              return root.collection('obsphotos').doc(doc.id).delete().catch(function() {});
+            });
+          })
+          .then(function() { return api._cumulative(studentId); })
+          .then(function(cum) { return { message: '삭제 완료', cumulative: cum }; });
+      },
+
+      saveHistory: function(grade, cls, title, payloadJson) {
+        var ms = Date.now();
+        return root.collection('history').add({
+          ms: ms,
+          createdAt: new Date(ms).toISOString(),
+          grade: String(grade).trim(),
+          cls: String(cls).trim(),
+          title: title || '',
+          payloadJson: payloadJson
+        }).then(function() { return '저장되었습니다!'; });
+      },
+
+      /** 전체 관찰기록 (최신순). 기록이 아주 많아지면 limit 가 걸린다. */
+      listAllObservations: function(limit) {
+        return root.collection('observations')
+          .orderBy('ms', 'desc')
+          .limit(limit || 5000)
+          .get()
+          .then(function(snap) {
+            var out = [];
+            snap.forEach(function(doc) {
+              var r = doc.data();
+              out.push({
+                id: doc.id,
+                ms: Number(r.ms) || 0,
+                ts: String(r.ts || ''),
+                studentId: String(r.studentId || ''),
+                name: String(r.name || ''),
+                item: String(r.item || ''),
+                score: Number(r.score) || 0,
+                hasPhoto: !!r.hasPhoto
+              });
+            });
+            return out;
+          });
+      },
+
+      /* ---------- 명렬표 동기화 ---------- */
+
+      syncFetchRoster: function() {
+        return Promise.reject(new Error('체험판에서는 명렬표 동기화를 쓰지 않아요.'));
+      },
+
+      syncFetchPhoto: function() { return Promise.resolve(''); },
+
+      listAllStudents: function() {
+        return root.collection('students').get().then(function(snap) {
+          var out = {};
+          snap.forEach(function(doc) { out[doc.id] = doc.data(); });
+          return out;
+        });
+      },
+
+      /** 학생 문서 여러 건을 한 번에 쓴다 */
+      writeStudents: function(items) {
+        var batch = db.batch();
+        items.forEach(function(it) {
+          batch.set(root.collection('students').doc(it.id), it.data);
+        });
+        return batch.commit();
+      },
+
+      writePhoto: function(id, dataUri) {
+        return root.collection('photos').doc(id).set({ d: dataUri });
+      },
+
+      /** 학생·사진 문서를 지운다. 관찰기록(observations)은 건드리지 않는다. */
+      removeStudents: function(ids) {
+        var batch = db.batch();
+        ids.forEach(function(id) {
+          batch.delete(root.collection('students').doc(id));
+          batch.delete(root.collection('photos').doc(id));
+        });
+        return batch.commit();
+      },
+
+      writeStructure: function(structure) {
+        return root.collection('meta').doc('structure').set({ structure: structure });
+      },
+
+      getLatestHistory: function(grade, cls) {
+        return root.collection('history')
+          .where('grade', '==', String(grade).trim())
+          .where('cls', '==', String(cls).trim())
+          .orderBy('ms', 'desc')
+          .limit(1)
+          .get()
+          .then(function(snap) {
+            if (snap.empty) return null;
+            var h = snap.docs[0].data();
+            return { createdAt: h.createdAt, title: h.title, payloadJson: h.payloadJson };
+          });
+      }
+    };
+
+    /* ================================================================
+       google.script.run 호환 계층
+       ================================================================
+       화면 코드(2000여 줄)는 앱스스크립트 시절 그대로 두고,
+       위 api 를 예전과 똑같은 호출 모양으로 감싸기만 한다.
+         google.script.run.withSuccessHandler(f).withFailureHandler(g).fn(...)
+       덕분에 포팅 과정에서 화면 로직을 건드리지 않아 회귀가 생기지 않는다.
+       ================================================================ */
+    var google = { script: { run: (function build(onSuccess, onFailure) {
+      var runner = {
+        withSuccessHandler: function(f) { return build(f, onFailure); },
+        withFailureHandler: function(f) { return build(onSuccess, f); }
+      };
+      Object.keys(api).forEach(function(name) {
+        if (name.charAt(0) === '_') return;
+        runner[name] = function() {
+          var args = Array.prototype.slice.call(arguments);
+          demoReady
+            .then(function() { return api[name].apply(api, args); })
+            .then(function(res) { if (onSuccess) onSuccess(res); })
+            .catch(function(err) {
+              console.error('[' + name + ']', err);
+              if (onFailure) onFailure(err);
+            });
+          return runner;
+        };
+      });
+      return runner;
+    })(null, null) } };
+
+    /* ================================================================
+       전역 변수
+       ================================================================ */
+    var allStudents = [];
+    var currentSeats = [];
+    var lockedSeats = [];
+    var structureData = {};
+    var photoCache = {};           // 프로필 사진 base64 캐시
+    var isLoadingPhotos = false;
+    var BATCH_SIZE = 5;            // 사진 배치 로딩 단위
+
+    var checklistItems = [];       // 체크리스트 항목 배열
+    var currentModalSeatIndex = -1;
+    var currentModalStudent = null;
+    var pendingPhotoBase64 = '';    // 첨부 대기 중인 사진 base64
+    var drawnPresenters = [];       // 이번 반에서 이미 뽑힌 발표자 (반을 바꾸면 비워진다)
+
+
+    /* ================================================================
+       초기화
+       ================================================================ */
+    window.onload = function() {
+      // 주소에 키가 없으면 아무것도 읽을 수 없다 — 안내만 띄우고 멈춘다.
+      if (false) {
+        document.body.innerHTML =
+          '<div style="max-width:520px; margin:80px auto; padding:28px; font-family:\'Noto Sans KR\',sans-serif;' +
+          ' background:#fff; border-radius:12px; box-shadow:0 2px 16px rgba(0,0,0,.08); line-height:1.7;">' +
+          '<h2 style="margin:0 0 12px;">주소가 올바르지 않습니다</h2>' +
+          '<p style="color:#555; margin:0;">이 앱은 주소 끝의 <code>?k=…</code> 부분까지 있어야 열립니다.<br>' +
+          '북마크해 두신 전체 주소로 다시 들어와 주세요.</p></div>';
+        return;
+      }
+
+      changeLayout();
+
+      // 학년/반 구조 로딩
+      google.script.run.withSuccessHandler(function(data) {
+        if (data.error) { alert("데이터 오류: " + data.error); return; }
+        structureData = data;
+        var gradeSel = document.getElementById('grade-select');
+        for (var g in data) {
+          var opt = document.createElement('option');
+          opt.value = g;
+          opt.text = g + '학년';
+          gradeSel.add(opt);
+        }
+      }).getInitData();
+
+      // 체크리스트 로딩
+      loadChecklistItems();
+    };
+
+    function loadChecklistItems() {
+      google.script.run.withSuccessHandler(function(items) {
+        checklistItems = items || [];
+      }).getChecklistItems();
+    }
+
+
+    /* ================================================================
+       학년 / 반 / 학생 로딩
+       ================================================================ */
+    function loadClasses() {
+      var grade = document.getElementById('grade-select').value;
+      var classSel = document.getElementById('class-select');
+      classSel.innerHTML = '<option>반 선택</option>';
+
+      if (structureData[grade]) {
+        structureData[grade].forEach(function(c) {
+          var opt = document.createElement('option');
+          opt.value = c;
+          opt.text = c + '반';
+          classSel.add(opt);
+        });
+      }
+      changeLayout();
+      showMsg('');
+    }
+
+    function handleClassChange() {
+      changeLayout();
+      photoCache = {};
+      loadStudents();
+      loadChecklistItems(); // 반 변경 시 체크리스트 새로고침
+    }
+
+    function loadStudents() {
+      var grade = document.getElementById('grade-select').value;
+      var cls = document.getElementById('class-select').value;
+      if (!grade || !cls || cls === '반 선택') return;
+
+      google.script.run.withSuccessHandler(function(students) {
+        allStudents = students;
+        document.getElementById('total-count').innerText = students.length;
+        renderRosterList();
+
+        // 반이 바뀌면 발표자 뽑기 기록도 새로 시작한다.
+        drawnPresenters = [];
+
+        // ★ 추가된 부분: 학년, 반 선택 시 번호 순으로 기본 배치 실행
+        autoFillByNumber();
+
+      }).getStudents(grade, cls);
+    }
+
+    /* ================================================================
+       번호순 자동 배치 기능
+       ================================================================ */
+    function autoFillByNumber() {
+      if (allStudents.length === 0) return;
+
+      // 1. 고정(lock)되지 않은 자리만 비우기
+      for (var i = 0; i < currentSeats.length; i++) {
+        if (!lockedSeats[i]) {
+          currentSeats[i] = null;
+        }
+      }
+
+      // 2. 비어있는 자리에 번호순으로 학생 배정
+      var studentIdx = 0;
+      for (var i = 0; i < currentSeats.length; i++) {
+        if (studentIdx >= allStudents.length) break;
+        if (!lockedSeats[i]) {
+          currentSeats[i] = allStudents[studentIdx];
+          studentIdx++;
+        }
+      }
+
+      // 3. UI 업데이트
+      for (var i = 0; i < currentSeats.length; i++) {
+        updateSeatUI(i);
+      }
+      renderRosterList();
+    }
+
+
+    /* ================================================================
+       프로필 사진 배치 로딩 (5명씩)
+       ================================================================ */
+    function loadPhotos() {
+      var grade = document.getElementById('grade-select').value;
+      var cls = document.getElementById('class-select').value;
+      if (!grade || !cls || cls === '반 선택' || allStudents.length === 0) return;
+      if (isLoadingPhotos) return;
+
+      // 캐시에 없는 학생만 추출
+      var needed = [];
+      allStudents.forEach(function(s) {
+        if (photoCache[s.no] === undefined && s.photo) {
+          needed.push(s.no);
+        }
+      });
+
+      if (needed.length === 0) {
+        refreshAllSeatPhotos();
+        return;
+      }
+
+      isLoadingPhotos = true;
+
+      // 5명씩 나누기
+      var batches = [];
+      for (var i = 0; i < needed.length; i += BATCH_SIZE) {
+        batches.push(needed.slice(i, i + BATCH_SIZE));
+      }
+
+      var totalBatches = batches.length;
+      var completedBatches = 0;
+      showProgress(true, 0);
+      showMsg('사진 로딩 중... 0/' + needed.length);
+
+      var loadedCount = 0;
+
+      function onBatchDone() {
+        completedBatches++;
+        showProgress(true, Math.round((completedBatches / totalBatches) * 100));
+        showMsg('사진 로딩 중... ' + Math.min(loadedCount, needed.length) + '/' + needed.length);
+
+        if (completedBatches >= totalBatches) {
+          isLoadingPhotos = false;
+          showProgress(false, 100);
+          showMsg('✅ 사진 로딩 완료!');
+        }
+      }
+
+      // ★ 예전에는 배치를 순차로 불렀다 — 앞 배치가 끝나야 다음이 시작되어
+      //   한 반(30명·6배치)이면 왕복을 6번 줄줄이 기다려야 했다.
+      //   배치끼리 의존이 없으므로 한꺼번에 띄운다.
+      batches.forEach(function(batch) {
+        google.script.run
+          .withSuccessHandler(function(photoMap) {
+            // 캐시 저장 & 화면 즉시 반영
+            for (var no in photoMap) {
+              photoCache[no] = photoMap[no];
+            }
+            for (var si = 0; si < currentSeats.length; si++) {
+              var seat = currentSeats[si];
+              if (seat && photoMap[seat.no] !== undefined) {
+                updateSeatUI(si);
+              }
+            }
+
+            loadedCount += batch.length;
+            onBatchDone();
+          })
+          .withFailureHandler(function() {
+            loadedCount += batch.length;
+            onBatchDone();
+          })
+          .getPhotoBatch(grade, cls, batch);
+      });
+    }
+
+    function showProgress(active, pct) {
+      var bar = document.getElementById('photo-progress');
+      var fill = document.getElementById('photo-progress-fill');
+      if (active) {
+        bar.classList.add('active');
+        fill.style.width = pct + '%';
+      } else {
+        fill.style.width = '100%';
+        setTimeout(function() { bar.classList.remove('active'); }, 500);
+      }
+    }
+
+    function refreshAllSeatPhotos() {
+      for (var i = 0; i < currentSeats.length; i++) {
+        if (currentSeats[i]) updateSeatUI(i);
+      }
+    }
+
+
+    /* ================================================================
+       명단 렌더링
+       ================================================================ */
+    function renderRosterList() {
+      var list = document.getElementById('roster-list');
+      list.innerHTML = '';
+
+      var assignedNos = currentSeats
+        .filter(function(s) { return s; })
+        .map(function(s) { return s.no; });
+
+      allStudents.forEach(function(s) {
+        var div = document.createElement('div');
+        div.className = 'student-item';
+        div.innerText = s.full;
+        if (assignedNos.indexOf(s.no) !== -1) {
+          div.classList.add('assigned');
+        }
+        list.appendChild(div);
+      });
+    }
+
+
+    /* ================================================================
+       레이아웃 변경
+       ================================================================ */
+    function changeLayout() {
+      var type = document.getElementById('layout-select').value;
+      var grid = document.getElementById('seat-grid');
+
+      grid.className = 'seat-container ' + type;
+      if (document.getElementById('photo-toggle').checked) {
+        grid.classList.add('show-photo-mode');
+      }
+
+      grid.innerHTML = '';
+      currentSeats = [];
+      lockedSeats = [];
+
+      var totalSeats = 36;
+      if (type === 'layout-7x5') totalSeats = 35;
+      if (type === 'layout-5x6-group') totalSeats = 30;
+
+      for (var i = 0; i < totalSeats; i++) {
+        currentSeats.push(null);
+        lockedSeats.push(false);
+        grid.appendChild(createSeatBox(i));
+      }
+      renderRosterList();
+    }
+
+
+    /* ================================================================
+       좌석 박스 생성
+       ================================================================ */
+    function createSeatBox(index) {
+      var div = document.createElement('div');
+      div.className = 'seat-box';
+      div.id = 'seat-' + index;
+      div.draggable = true;
+
+      div.onclick = function(e) {
+        if (e.target.className && typeof e.target.className === 'string'
+            && e.target.className.indexOf('material-icons') !== -1) return;
+        openDetailModal(index);
+      };
+
+      div.addEventListener('dragstart', handleDragStart);
+      div.addEventListener('dragover', handleDragOver);
+      div.addEventListener('dragleave', handleDragLeave);
+      div.addEventListener('drop', handleDrop);
+
+      // 잠금 아이콘
+      var lock = document.createElement('span');
+      lock.className = 'material-icons seat-ctrl seat-lock';
+      lock.innerText = 'lock_open';
+      lock.onclick = function() { toggleLock(index, lock); };
+      div.appendChild(lock);
+
+      // 삭제 아이콘
+      var del = document.createElement('span');
+      del.className = 'material-icons seat-ctrl seat-delete';
+      del.innerText = 'close';
+      del.onclick = function() { removeStudent(index); };
+      div.appendChild(del);
+
+      // 내용 영역
+      var content = document.createElement('div');
+      content.id = 'content-' + index;
+      content.className = 'seat-info';
+      div.appendChild(content);
+
+      return div;
+    }
+
+
+    /* ================================================================
+       드래그 앤 드롭
+       ================================================================ */
+    function handleDragStart(e) {
+      var index = parseInt(this.id.split('-')[1]);
+      if (!currentSeats[index]) { e.preventDefault(); return; }
+      e.dataTransfer.setData('text/plain', index);
+      e.dataTransfer.effectAllowed = 'move';
+      this.style.opacity = '0.4';
+    }
+
+    function handleDragOver(e) {
+      if (e.preventDefault) e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      this.classList.add('drag-over');
+      return false;
+    }
+
+    function handleDragLeave() {
+      this.classList.remove('drag-over');
+    }
+
+    function handleDrop(e) {
+      e.stopPropagation();
+      this.classList.remove('drag-over');
+      this.style.opacity = '1';
+
+      var fromIndex = parseInt(e.dataTransfer.getData('text/plain'));
+      var toIndex = parseInt(this.id.split('-')[1]);
+
+      if (fromIndex === toIndex || isNaN(fromIndex)) {
+        if (!isNaN(fromIndex)) {
+          document.getElementById('seat-' + fromIndex).style.opacity = '1';
+        }
+        return false;
+      }
+
+      swapSeats(fromIndex, toIndex);
+      return false;
+    }
+
+    function swapSeats(idx1, idx2) {
+      var temp = currentSeats[idx1];
+      currentSeats[idx1] = currentSeats[idx2];
+      currentSeats[idx2] = temp;
+
+      updateSeatUI(idx1);
+      updateSeatUI(idx2);
+      document.getElementById('seat-' + idx1).style.opacity = '1';
+      document.getElementById('seat-' + idx2).style.opacity = '1';
+    }
+
+
+    /* ================================================================
+       좌석 UI 업데이트
+       ================================================================ */
+    function updateSeatUI(index) {
+      var box = document.getElementById('seat-' + index);
+      var content = document.getElementById('content-' + index);
+      var student = currentSeats[index];
+
+      // 기존 사진/placeholder 제거
+      var oldImg = box.querySelector(':scope > img.seat-photo');
+      if (oldImg) oldImg.remove();
+      var oldPh = box.querySelector(':scope > .seat-photo-placeholder');
+      if (oldPh) oldPh.remove();
+
+      if (student) {
+        box.classList.add('has-student');
+        box.draggable = true;
+
+        // 발표자로 뽑힌 학생은 자리에 테두리로 표시한다
+        var drawn = drawnPresenters.filter(function(p) { return p.no === student.no; })[0];
+        box.classList.toggle('is-presenter', !!drawn);
+        box.classList.toggle('is-presenter-praised', !!(drawn && drawn.praised === true));
+
+        var base64Src = photoCache[student.no] || '';
+
+        if (base64Src) {
+          var img = document.createElement('img');
+          img.className = 'seat-photo';
+          img.src = base64Src;
+          box.insertBefore(img, content);
+        } else {
+          var ph = document.createElement('div');
+          ph.className = 'seat-photo-placeholder';
+          ph.innerHTML = '<span class="material-icons" style="font-size:24px;">person</span>';
+          box.insertBefore(ph, content);
+        }
+
+        content.innerHTML =
+          '<span class="seat-no">' + student.no + '</span>' +
+          '<span class="seat-name">' + student.name + '</span>';
+      } else {
+        box.classList.remove('has-student');
+        box.classList.remove('is-presenter');
+        box.classList.remove('is-presenter-praised');
+        box.draggable = false;
+
+        if (lockedSeats[index]) {
+          content.innerHTML = '<span style="font-size:10px; color:#999; display:block;">빈자리<br>고정</span>';
+        } else {
+          content.innerHTML = '';
+        }
+      }
+    }
+
+
+    /* ================================================================
+       잠금 / 삭제
+       ================================================================ */
+    function toggleLock(index, el) {
+      lockedSeats[index] = !lockedSeats[index];
+      var box = document.getElementById('seat-' + index);
+
+      if (lockedSeats[index]) {
+        el.innerText = 'lock';
+        el.classList.add('checked');
+        box.classList.add('locked');
+        if (!currentSeats[index]) {
+          box.classList.add('empty-seat-fixed');
+          updateSeatUI(index);
+        }
+      } else {
+        el.innerText = 'lock_open';
+        el.classList.remove('checked');
+        box.classList.remove('locked');
+        box.classList.remove('empty-seat-fixed');
+        updateSeatUI(index);
+      }
+    }
+
+    function removeStudent(index) {
+      if (lockedSeats[index]) {
+        alert('고정된 자리는 삭제할 수 없습니다.');
+        return;
+      }
+      currentSeats[index] = null;
+      updateSeatUI(index);
+      renderRosterList();
+    }
+
+
+    /* ================================================================
+       학생 상세 모달 열기/닫기
+       ================================================================ */
+    function openDetailModal(index) {
+      if (lockedSeats[index]) return;
+
+      currentModalSeatIndex = index;
+      currentModalStudent = currentSeats[index];
+      pendingPhotoBase64 = '';
+
+      // 헤더 설정
+      var photoArea = document.getElementById('detail-photo-area');
+      var nameEl = document.getElementById('detail-name');
+      var subEl = document.getElementById('detail-sub');
+
+      if (currentModalStudent) {
+        var src = photoCache[currentModalStudent.no] || '';
+        if (src) {
+          photoArea.innerHTML = '<img class="detail-header-photo" src="' + src + '">';
+        } else {
+          photoArea.innerHTML = '<div class="detail-header-photo-placeholder"><span class="material-icons">person</span></div>';
+        }
+        nameEl.innerText = currentModalStudent.no + '. ' + currentModalStudent.name;
+        subEl.innerText = '학번: ' + (currentModalStudent.studentId || '-');
+      } else {
+        photoArea.innerHTML = '<div class="detail-header-photo-placeholder"><span class="material-icons">event_seat</span></div>';
+        nameEl.innerText = '빈 좌석 #' + (index + 1);
+        subEl.innerText = '학생을 배정해주세요';
+      }
+
+      // 탭 초기화
+      document.querySelectorAll('.detail-tab').forEach(function(t) {
+        t.classList.remove('active', 'disabled');
+      });
+      document.querySelectorAll('.tab-panel').forEach(function(p) {
+        p.classList.remove('active');
+      });
+
+      // 학생 없으면 체크리스트/사진/기록 탭 비활성화
+      var hasStudent = !!currentModalStudent;
+      ['tab-checklist', 'tab-photo', 'tab-records'].forEach(function(id) {
+        var tab = document.querySelector('[data-tab="' + id + '"]');
+        if (!hasStudent) tab.classList.add('disabled');
+      });
+
+      // 기본 탭: 학생 있으면 체크리스트, 없으면 좌석배정
+      var defaultTab = hasStudent ? 'tab-checklist' : 'tab-assign';
+      document.querySelector('[data-tab="' + defaultTab + '"]').classList.add('active');
+      document.getElementById(defaultTab).classList.add('active');
+
+      // 각 탭 내용 렌더
+      renderAssignList(index);
+      renderChecklistTab();
+
+      // 사진 탭 초기화
+      document.getElementById('photo-preview-area').style.display = 'none';
+      document.getElementById('photo-input').value = '';
+      document.getElementById('checklist-photo-badge').style.display = 'none';
+
+      // 모달 표시
+      document.getElementById('detail-modal').style.display = 'flex';
+    }
+
+    function closeDetailModal() {
+      document.getElementById('detail-modal').style.display = 'none';
+      currentModalSeatIndex = -1;
+      currentModalStudent = null;
+      pendingPhotoBase64 = '';
+    }
+
+    function switchTab(el) {
+      if (el.classList.contains('disabled')) return;
+
+      var tabId = el.getAttribute('data-tab');
+      document.querySelectorAll('.detail-tab').forEach(function(t) { t.classList.remove('active'); });
+      document.querySelectorAll('.tab-panel').forEach(function(p) { p.classList.remove('active'); });
+      el.classList.add('active');
+      document.getElementById(tabId).classList.add('active');
+
+      // 관찰기록 탭이면 데이터 로딩
+      if (tabId === 'tab-records' && currentModalStudent) {
+        loadRecordsTab();
+      }
+    }
+
+
+    /* ================================================================
+       탭 1: 좌석배정
+       ================================================================ */
+    function renderAssignList(index) {
+      var list = document.getElementById('assign-list');
+      list.innerHTML = '';
+
+      // 비우기 옵션
+      var clearItem = document.createElement('div');
+      clearItem.className = 'assign-item clear-item';
+      clearItem.innerHTML = '<span class="material-icons" style="font-size:18px;">remove_circle</span> 선택 해제 / 비우기';
+      clearItem.onclick = function() {
+        removeStudent(index);
+        closeDetailModal();
+      };
+      list.appendChild(clearItem);
+
+      // 배정 가능한 학생 목록
+      var assignedNos = currentSeats
+        .filter(function(s, i) { return s && i !== index; })
+        .map(function(s) { return s.no; });
+
+      var available = allStudents.filter(function(s) {
+        return assignedNos.indexOf(s.no) === -1;
+      });
+
+      available.forEach(function(s) {
+        var item = document.createElement('div');
+        item.className = 'assign-item';
+        item.innerHTML = '<span class="material-icons" style="font-size:18px; color:#4285f4;">person</span> ' + s.full;
+        item.onclick = function() {
+          currentSeats[index] = s;
+          updateSeatUI(index);
+          renderRosterList();
+          closeDetailModal();
+          openDetailModal(index); // 학생 배정 후 모달 갱신
+        };
+        list.appendChild(item);
+      });
+    }
+
+
+    /* ================================================================
+       탭 2: 체크리스트
+       ================================================================ */
+    function renderChecklistTab() {
+      var container = document.getElementById('checklist-list');
+      var emptyMsg = document.getElementById('checklist-empty');
+      container.innerHTML = '';
+
+      if (checklistItems.length === 0) {
+        emptyMsg.style.display = 'block';
+        return;
+      }
+      emptyMsg.style.display = 'none';
+
+      checklistItems.forEach(function(cl) {
+        var div = document.createElement('div');
+        div.className = 'checklist-item';
+
+        var scoreClass = cl.score > 0 ? 'cl-score-positive' : (cl.score < 0 ? 'cl-score-negative' : 'cl-score-zero');
+        var prefix = cl.score > 0 ? '+' : '';
+
+        div.innerHTML =
+          '<div class="cl-icon"><span class="material-icons">check_circle</span></div>' +
+          '<div class="cl-info"><div class="cl-name">' + cl.item + '</div></div>' +
+          '<span class="cl-score-badge ' + scoreClass + '">' + prefix + cl.score + '점</span>';
+
+        div.onclick = function() { submitChecklist(cl); };
+        container.appendChild(div);
+      });
+    }
+
+    /** 체크리스트 항목 선택 → 관찰기록 저장 */
+    function submitChecklist(cl) {
+      if (!currentModalStudent) return;
+      var student = currentModalStudent;
+      showSaving(true);
+
+      if (pendingPhotoBase64) {
+        // 사진 첨부 상태 → 사진 업로드 후 기록 저장
+        google.script.run
+          .withSuccessHandler(function(photoUrl) {
+            doSaveObservation(student, cl, photoUrl);
+          })
+          .withFailureHandler(function(err) {
+            showSaving(false);
+            alert('사진 업로드 실패: ' + err);
+          })
+          .uploadObservationPhoto(pendingPhotoBase64, String(student.studentId), student.name);
+      } else {
+        // 사진 없이 체크 기록만 저장
+        doSaveObservation(student, cl, '');
+      }
+    }
+
+    function doSaveObservation(student, cl, photoUrl) {
+      google.script.run
+        .withSuccessHandler(function(result) {
+          showSaving(false);
+          var prefix = cl.score > 0 ? '+' : '';
+          showToast(student.name + ' → ' + cl.item + ' (' + prefix + cl.score + '점) 기록! 누적: ' + result.cumulative + '점');
+
+          // 상태 초기화
+          pendingPhotoBase64 = '';
+          document.getElementById('photo-preview-area').style.display = 'none';
+          document.getElementById('photo-input').value = '';
+          document.getElementById('checklist-photo-badge').style.display = 'none';
+        })
+        .withFailureHandler(function(err) {
+          showSaving(false);
+          alert('기록 저장 실패: ' + err);
+        })
+        .saveObservation(String(student.studentId), student.name, cl.item, cl.score, photoUrl);
+    }
+
+
+    /* ================================================================
+       탭 3: 사진 첨부 (활동 기록용)
+       ================================================================ */
+    function handlePhotoSelected(e) {
+      var file = e.target.files[0];
+      if (!file) return;
+
+      var reader = new FileReader();
+      reader.onload = function(ev) {
+        pendingPhotoBase64 = ev.target.result;
+        document.getElementById('photo-preview-img').src = pendingPhotoBase64;
+        document.getElementById('photo-preview-area').style.display = 'block';
+
+        // 체크리스트 탭에도 사진 첨부 표시
+        var badge = document.getElementById('checklist-photo-badge');
+        badge.innerHTML = '<div class="photo-attached-badge">' +
+          '<span class="material-icons" style="font-size:14px;">image</span> ' +
+          '사진이 첨부되어 있습니다. 아래 항목을 선택하면 함께 기록됩니다.</div>';
+        badge.style.display = 'block';
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function cancelPhoto() {
+      pendingPhotoBase64 = '';
+      document.getElementById('photo-preview-area').style.display = 'none';
+      document.getElementById('photo-input').value = '';
+      document.getElementById('checklist-photo-badge').style.display = 'none';
+    }
+
+    /** 사진만 기록 저장 (체크항목 없이) → 학생관찰기록 시트에 저장 */
+    function submitPhotoOnly() {
+      if (!currentModalStudent || !pendingPhotoBase64) return;
+      var student = currentModalStudent;
+      showSaving(true);
+
+      // 1단계: 사진 업로드
+      google.script.run
+        .withSuccessHandler(function(photoUrl) {
+          // 2단계: 관찰기록에 사진 기록 저장
+          google.script.run
+            .withSuccessHandler(function(result) {
+              showSaving(false);
+              showToast(student.name + ' 사진 기록 저장 완료!');
+              pendingPhotoBase64 = '';
+              document.getElementById('photo-preview-area').style.display = 'none';
+              document.getElementById('photo-input').value = '';
+              document.getElementById('checklist-photo-badge').style.display = 'none';
+            })
+            .withFailureHandler(function(err) {
+              showSaving(false);
+              alert('기록 저장 실패: ' + err);
+            })
+            .savePhotoOnlyObservation(String(student.studentId), student.name, photoUrl);
+        })
+        .withFailureHandler(function(err) {
+          showSaving(false);
+          alert('사진 업로드 실패: ' + err);
+        })
+        .uploadObservationPhoto(pendingPhotoBase64, String(student.studentId), student.name);
+    }
+
+
+    /* ================================================================
+       탭 4: 관찰기록 조회
+       ================================================================ */
+    function loadRecordsTab() {
+      if (!currentModalStudent) return;
+
+      var container = document.getElementById('records-list');
+      var summaryEl = document.getElementById('records-summary');
+      var emptyMsg = document.getElementById('records-empty');
+
+      container.innerHTML = '<div style="text-align:center; padding:20px; color:#aaa;">불러오는 중...</div>';
+      summaryEl.style.display = 'none';
+      emptyMsg.style.display = 'none';
+
+      var sid = String(currentModalStudent.studentId);
+      console.log('[관찰기록] 조회 시작 - studentId:', sid);
+
+      google.script.run
+        .withSuccessHandler(function(data) {
+          console.log('[관찰기록] 서버 응답:', JSON.stringify(data));
+          container.innerHTML = '';
+
+          // null이거나 에러가 있는 경우
+          if (!data) {
+            container.innerHTML = '<div style="text-align:center; padding:20px; color:#d93025;">서버가 null을 반환했습니다.<br>새 배포가 필요할 수 있습니다.</div>';
+            return;
+          }
+
+          if (data.error) {
+            container.innerHTML = '<div style="text-align:center; padding:20px; color:#d93025;">에러: ' + data.error + '</div>';
+            return;
+          }
+
+          if (!data.records || data.records.length === 0) {
+            emptyMsg.style.display = 'block';
+            summaryEl.style.display = 'none';
+            return;
+          }
+          emptyMsg.style.display = 'none';
+
+          // 통계 계산
+          var plusCount = 0;
+          var minusCount = 0;
+          var photoCount = 0;
+          data.records.forEach(function(r) {
+            if (r.score > 0) plusCount++;
+            else if (r.score < 0) minusCount++;
+            if (r.photoUrl) photoCount++;
+          });
+
+          // 누적점수 요약 카드
+          summaryEl.style.display = 'block';
+          var scoreVal = document.getElementById('summary-score-value');
+          scoreVal.innerText = data.cumulative + '점';
+          scoreVal.className = 'summary-score-value ' +
+            (data.cumulative > 0 ? 'summary-score-positive' : (data.cumulative < 0 ? 'summary-score-negative' : 'summary-score-zero'));
+
+          document.getElementById('summary-plus-count').innerText = plusCount;
+          document.getElementById('summary-minus-count').innerText = minusCount;
+          document.getElementById('summary-photo-count').innerText = photoCount;
+
+          // 최신순으로 체크 내역 표시
+          var records = data.records.reverse();
+          records.forEach(function(r) {
+            var div = document.createElement('div');
+            div.className = 'record-item';
+
+            var originalTs = r.timestamp; // 삭제 시 식별자로 사용할 원본 타임스탬프
+
+            // 타임스탬프 화면 표시용 포맷팅
+            var ts = r.timestamp;
+            if (ts && typeof ts === 'object' && ts.getTime) {
+              ts = ts.getFullYear() + '-' +
+                   String(ts.getMonth() + 1).padStart(2, '0') + '-' +
+                   String(ts.getDate()).padStart(2, '0') + ' ' +
+                   String(ts.getHours()).padStart(2, '0') + ':' +
+                   String(ts.getMinutes()).padStart(2, '0');
+            } else if (typeof ts === 'string' && ts.length > 10) {
+              ts = ts.replace('T', ' ').substring(0, 16);
+            }
+
+            var prefix = r.score > 0 ? '+' : '';
+
+            // 사진 보기 (비공개 파일이라 앱이 직접 읽어서 띄운다)
+            var photoRef = String(r.photoUrl || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+            var photoHtml = r.photoUrl
+              ? ' <a href="#" onclick="showObsPhoto(this, \'' + photoRef + '\'); return false;"' +
+                ' title="사진 보기" style="color:#4285f4; text-decoration:none;">' +
+                '<span class="material-icons" style="font-size:14px; vertical-align:middle;">image</span></a>'
+              : '';
+
+            // 점수 배지 색상
+            var badgeClass = r.score > 0 ? 'cl-score-positive' : (r.score < 0 ? 'cl-score-negative' : 'cl-score-zero');
+            
+            // ★ 삭제 버튼 HTML 추가
+            var deleteBtnHtml = '<button class="delete-record-btn" onclick="deleteRecord(\'' + sid + '\', \'' + originalTs + '\')" title="기록 삭제"><span class="material-icons">delete</span></button>';
+
+            div.innerHTML =
+              '<div style="display:flex; justify-content:space-between; align-items:center;">' +
+                '<div style="flex:1;">' +
+                  '<div class="record-time">' + ts + '</div>' +
+                  '<div class="record-check">' + r.checkItem + photoHtml + '</div>' +
+                '</div>' +
+                '<div style="display:flex; align-items:center; gap:8px; flex-shrink:0;">' +
+                  '<span class="cl-score-badge ' + badgeClass + '">' + prefix + r.score + '점</span>' +
+                  deleteBtnHtml + // 휴지통 아이콘 추가
+                '</div>' +
+              '</div>';
+
+            container.appendChild(div);
+          });
+        })
+        .withFailureHandler(function(err) {
+          console.error('[관찰기록] 서버 에러:', err);
+          container.innerHTML = '<div style="text-align:center; padding:20px; color:#d93025;">불러오기 실패: ' + err + '</div>';
+        })
+        .getStudentObservations(sid);
+    }
+
+
+    /* ================================================================
+       사진 모드 토글
+       ================================================================ */
+    function togglePhotoMode() {
+      var isChecked = document.getElementById('photo-toggle').checked;
+      var grid = document.getElementById('seat-grid');
+
+      if (isChecked) {
+        grid.classList.add('show-photo-mode');
+        loadPhotos();
+      } else {
+        grid.classList.remove('show-photo-mode');
+      }
+    }
+
+    /* ================================================================
+       학생용 보기 토글
+       ================================================================ */
+    function toggleStudentView() {
+      var isChecked = document.getElementById('student-view-toggle').checked;
+      var captureArea = document.getElementById('capture-area');
+
+      if (isChecked) {
+        captureArea.classList.add('student-view-mode');
+      } else {
+        captureArea.classList.remove('student-view-mode');
+      }
+    }
+
+
+    /* ================================================================
+       랜덤 배치
+       ================================================================ */
+    function startRandomAssignment() {
+      if (allStudents.length === 0) {
+        alert('먼저 학급을 선택해주세요.');
+        return;
+      }
+
+      // 고정된 좌석의 학생 번호
+      var lockedNos = currentSeats
+        .filter(function(s, i) { return s && lockedSeats[i]; })
+        .map(function(s) { return s.no; });
+
+      // 배정 대상 학생
+      var targetStudents = allStudents.filter(function(s) {
+        return lockedNos.indexOf(s.no) === -1;
+      });
+
+      // 배정 대상 좌석
+      var targetSeatIndices = [];
+      for (var i = 0; i < currentSeats.length; i++) {
+        if (!lockedSeats[i]) {
+          targetSeatIndices.push(i);
+          currentSeats[i] = null;
+          updateSeatUI(i);
+        }
+      }
+
+      if (targetStudents.length > targetSeatIndices.length) {
+        alert('자리가 부족합니다!');
+        return;
+      }
+
+      // Fisher-Yates 셔플
+      for (var i = targetStudents.length - 1; i > 0; i--) {
+        var j = Math.floor(Math.random() * (i + 1));
+        var temp = targetStudents[i];
+        targetStudents[i] = targetStudents[j];
+        targetStudents[j] = temp;
+      }
+
+      renderRosterList();
+
+      // 애니메이션 효과로 순차 배치
+      targetStudents.forEach(function(student, idx) {
+        setTimeout(function() {
+          var seatIdx = targetSeatIndices[idx];
+          currentSeats[seatIdx] = student;
+          updateSeatUI(seatIdx);
+
+          if (idx === targetStudents.length - 1) {
+            renderRosterList();
+          }
+        }, idx * 150);
+      });
+    }
+
+
+    /* ================================================================
+       이미지 저장 / 기록 저장 / 기록 불러오기
+       ================================================================ */
+    function saveAsImage() {
+      var grade = document.getElementById('grade-select').value;
+      var cls = document.getElementById('class-select').value;
+      if (!grade || !cls) { alert('학년/반을 선택하세요.'); return; }
+
+      var titleDiv = document.getElementById('print-title');
+      titleDiv.innerText = grade + '학년 ' + cls + '반 자리배치표';
+      titleDiv.style.display = 'block';
+
+      var ctrls = document.querySelectorAll('.seat-ctrl');
+      ctrls.forEach(function(c) { c.style.display = 'none'; });
+
+      var captureArea = document.getElementById('capture-area');
+      var origOverflow = captureArea.style.overflow;
+      captureArea.style.overflow = 'visible';
+
+      html2canvas(document.getElementById('seat-grid').parentElement, {
+        useCORS: true, allowTaint: true, backgroundColor: "#ffffff", scale: 2
+      }).then(function(canvas) {
+        var link = document.createElement('a');
+        link.download = '광성중학교_' + grade + '학년' + cls + '반_자리배치.png';
+        link.href = canvas.toDataURL();
+        link.click();
+
+        titleDiv.style.display = 'none';
+        ctrls.forEach(function(c) { c.style.display = ''; });
+        captureArea.style.overflow = origOverflow;
+      });
+    }
+
+    function saveData() {
+      var grade = document.getElementById('grade-select').value;
+      var cls = document.getElementById('class-select').value;
+      if (!grade || !cls) { alert('학년/반을 선택하세요.'); return; }
+
+      var layoutType = document.getElementById('layout-select').value;
+      var title = prompt("저장할 제목:", new Date().toLocaleDateString() + " 배정");
+      if (!title) return;
+
+      var seatsData = [];
+      for (var i = 0; i < currentSeats.length; i++) {
+        var s = currentSeats[i];
+        seatsData.push({
+          seatNo: i + 1,
+          studentNo: s ? s.no : null,
+          studentName: s ? s.name : "",
+          isLocked: lockedSeats[i]
+        });
+      }
+
+      var payload = {
+        layout: { type: layoutType },
+        seats: seatsData
+      };
+
+      google.script.run.withSuccessHandler(function(res) {
+        alert(res);
+        showMsg("저장 완료!");
+      }).saveHistory(grade, cls, title, JSON.stringify(payload));
+    }
+
+    /**
+     * 저장 시각(+제목)을 화면용 문자열로.
+     * createdAt 은 UTC(ISO) 라 문자열을 그대로 자르면 9시간 어긋난다 — Date 로 변환해서 쓴다.
+     */
+    function formatHistoryLabel(historyItem) {
+      var parts = [];
+      var d = new Date(historyItem.createdAt);
+      if (historyItem.createdAt && !isNaN(d.getTime())) {
+        var p = function(n) { return String(n).padStart(2, '0'); };
+        parts.push(d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) +
+                   ' ' + p(d.getHours()) + ':' + p(d.getMinutes()));
+      }
+      if (historyItem.title) parts.push(historyItem.title);
+      return parts.length ? parts.join(' · ') : '시각 정보 없음';
+    }
+
+    function loadLatestHistory() {
+      var grade = document.getElementById('grade-select').value;
+      var cls = document.getElementById('class-select').value;
+      if (!grade || !cls || cls === '반 선택') {
+        alert("학년과 반을 먼저 선택해주세요.");
+        return;
+      }
+      if (!confirm('현재 배치를 지우고 최근 기록을 불러오시겠습니까?')) return;
+
+      google.script.run.withSuccessHandler(function(historyItem) {
+        if (historyItem) {
+          applyHistoryData(historyItem);
+          showMsg("✅ 최근 기록(" + formatHistoryLabel(historyItem) + ")을 불러왔습니다.");
+        } else {
+          alert("저장된 기록이 없습니다.");
+          showMsg("");
+        }
+      }).getLatestHistory(grade, cls);
+    }
+
+    function applyHistoryData(historyItem) {
+      try {
+        var data = JSON.parse(historyItem.payloadJson);
+        var layoutType = data.layout.type;
+        var seatsData = data.seats;
+
+        // 레이아웃 타입 호환
+        if (layoutType === '6x6-row') layoutType = 'layout-6x6-row';
+        if (layoutType === '6x6-group') layoutType = 'layout-6x6-group';
+        if (layoutType === '7x5') layoutType = 'layout-7x5';
+        if (layoutType === '5x6-group') layoutType = 'layout-5x6-group';
+
+        document.getElementById('layout-select').value = layoutType;
+        changeLayout();
+
+        var maxSeats = Math.min(seatsData.length, currentSeats.length);
+
+        for (var i = 0; i < maxSeats; i++) {
+          var s = seatsData[i];
+          if (s.studentNo) {
+            var found = allStudents.find(function(st) {
+              return String(st.no) === String(s.studentNo);
+            });
+            currentSeats[i] = found || null;
+          } else {
+            currentSeats[i] = null;
+          }
+          lockedSeats[i] = !!s.isLocked;
+        }
+
+        for (var i = 0; i < maxSeats; i++) {
+          updateSeatUI(i);
+
+          if (lockedSeats[i]) {
+            var box = document.getElementById('seat-' + i);
+            var lockIcon = box.querySelector('.seat-lock');
+            box.classList.add('locked');
+            lockIcon.innerText = 'lock';
+            lockIcon.classList.add('checked');
+
+            if (!currentSeats[i]) {
+              box.classList.add('empty-seat-fixed');
+              document.getElementById('content-' + i).innerHTML =
+                '<span style="font-size:10px; color:#999; display:block;">빈자리<br>고정</span>';
+            }
+          }
+        }
+
+        renderRosterList();
+
+        if (document.getElementById('photo-toggle').checked) {
+          loadPhotos();
+        }
+      } catch (e) {
+        alert("데이터 오류: " + e);
+      }
+    }
+
+
+    /* ================================================================
+       유틸리티 함수
+       ================================================================ */
+    function showMsg(text) {
+      var msg = document.getElementById('status-msg');
+      msg.innerText = text;
+      msg.style.display = text ? 'inline' : 'none';
+    }
+
+    function showToast(text) {
+      var el = document.getElementById('toast');
+      el.innerText = text;
+      el.classList.add('show');
+      setTimeout(function() { el.classList.remove('show'); }, 3000);
+    }
+
+    function showSaving(on) {
+      var el = document.getElementById('saving-spinner');
+      if (on) el.classList.add('active');
+      else el.classList.remove('active');
+    }
+
+    /* ================================================================
+       기록 삭제
+       ================================================================ */
+    function deleteRecord(studentId, timestamp) {
+      if (!confirm('이 관찰기록을 삭제하시겠습니까?\n(삭제 후 학생의 누적점수가 자동으로 재계산됩니다)')) return;
+      
+      showSaving(true);
+      
+      google.script.run
+        .withSuccessHandler(function(result) {
+          showSaving(false);
+          if (result.error) {
+            alert(result.error);
+            return;
+          }
+          showToast('기록이 삭제되었습니다.');
+          loadRecordsTab(); // 삭제가 완료되면 화면(탭)을 새로고침
+        })
+        .withFailureHandler(function(err) {
+          showSaving(false);
+          alert('삭제 실패: ' + err);
+        })
+        .deleteObservationRecord(studentId, timestamp);
+    }
+
+    /* ================================================================
+       관찰기록 사진 보기
+       사진은 드라이브에 비공개로 저장되므로 링크로 직접 열 수 없다.
+       앱 소유자 권한으로 읽어 내려받아 화면에 띄운다.
+       ================================================================ */
+    function showObsPhoto(el, ref) {
+      var icon = el.querySelector('.material-icons');
+      if (el.dataset.loading === '1') return;
+      el.dataset.loading = '1';
+      if (icon) icon.innerText = 'hourglass_top';
+
+      function done() {
+        el.dataset.loading = '';
+        if (icon) icon.innerText = 'image';
+      }
+
+      google.script.run
+        .withSuccessHandler(function(dataUri) {
+          done();
+          if (!dataUri) {
+            alert('사진을 불러오지 못했습니다.\n(파일이 지워졌거나 접근할 수 없습니다)');
+            return;
+          }
+          document.getElementById('obs-photo-img').src = dataUri;
+          document.getElementById('obs-photo-modal').style.display = 'flex';
+        })
+        .withFailureHandler(function(err) {
+          done();
+          alert('사진 불러오기 실패: ' + err);
+        })
+        .getObservationPhoto(ref);
+    }
+
+    function closeObsPhoto() {
+      document.getElementById('obs-photo-modal').style.display = 'none';
+      document.getElementById('obs-photo-img').src = '';
+    }
+
+    /* ================================================================
+       전체 관찰기록
+       ================================================================
+       관찰기록에는 학년·반이 없고 학번만 있다(전학을 가도 기록이 남게 하려고).
+       그래서 명렬표를 같이 읽어 학번 → 학년·반·번호 를 붙인다.
+       명단에서 빠진 학생의 기록도 "(명단에 없음)" 으로 계속 보인다.
+       ================================================================ */
+    var recData = null;        // { obs: [...], byStudentId: {...} }
+    var recTab = 'list';
+    var recSort = { list: 'time', sum: 'score' };
+
+    function openRecords() {
+      document.getElementById('rec-modal').style.display = 'flex';
+      document.getElementById('rec-body').innerHTML = '<div class="rec-empty">불러오는 중…</div>';
+
+      // 열 때마다 다시 읽는다 — 방금 남긴 기록이 빠지면 안 된다
+      Promise.all([api.listAllObservations(), api.listAllStudents()])
+        .then(function(res) {
+          var byId = {};
+          Object.keys(res[1]).forEach(function(docId) {
+            var s = res[1][docId];
+            if (s.studentId) byId[String(s.studentId)] = s;
+          });
+          recData = { obs: res[0], byStudentId: byId };
+          fillRecGrades_();
+          renderRecords();
+        })
+        .catch(function(err) {
+          document.getElementById('rec-body').innerHTML =
+            '<div class="rec-empty" style="color:#c62828;">불러오지 못했습니다.<br>' +
+            (err && err.message ? err.message : err) + '</div>';
+        });
+    }
+
+    function closeRecords() {
+      document.getElementById('rec-modal').style.display = 'none';
+    }
+
+    function fillRecGrades_() {
+      var sel = document.getElementById('rec-grade');
+      if (sel.options.length > 1) return;
+      Object.keys(structureData).sort().forEach(function(g) {
+        var o = document.createElement('option');
+        o.value = g; o.text = g + '학년';
+        sel.add(o);
+      });
+    }
+
+    function onRecGradeChange() {
+      var g = document.getElementById('rec-grade').value;
+      var sel = document.getElementById('rec-cls');
+      sel.innerHTML = '<option value="">전체 반</option>';
+      if (g && structureData[g]) {
+        structureData[g].forEach(function(c) {
+          var o = document.createElement('option');
+          o.value = c; o.text = c + '반';
+          sel.add(o);
+        });
+      }
+      renderRecords();
+    }
+
+    function switchRecordsTab(tab) {
+      recTab = tab;
+      document.getElementById('rec-tab-list').className = 'rec-tab' + (tab === 'list' ? ' active' : '');
+      document.getElementById('rec-tab-sum').className = 'rec-tab' + (tab === 'sum' ? ' active' : '');
+      renderRecords();
+    }
+
+    function recSortBy(key) {
+      recSort[recTab] = key;
+      renderRecords();
+    }
+
+    /** 필터를 통과한 기록 + 학생정보를 붙여서 돌려준다 */
+    function recFiltered_() {
+      var g = document.getElementById('rec-grade').value;
+      var c = document.getElementById('rec-cls').value;
+      var period = document.getElementById('rec-period').value;
+
+      var from = 0;
+      if (period === 'today') {
+        var d = new Date(); d.setHours(0, 0, 0, 0); from = d.getTime();
+      } else if (period !== 'all') {
+        from = Date.now() - Number(period) * 24 * 60 * 60 * 1000;
+      }
+
+      return recData.obs.filter(function(r) {
+        if (from && r.ms < from) return false;
+        var s = recData.byStudentId[r.studentId];
+        if (g && (!s || s.grade !== g)) return false;
+        if (c && (!s || s.cls !== c)) return false;
+        return true;
+      }).map(function(r) {
+        var s = recData.byStudentId[r.studentId];
+        return {
+          rec: r,
+          where: s ? (s.grade + '-' + s.cls + '-' + s.no) : '',
+          gone: !s
+        };
+      });
+    }
+
+    function recScoreCell_(n) {
+      var cls = n > 0 ? 'plus' : (n < 0 ? 'minus' : 'zero');
+      return '<td class="rec-score ' + cls + '">' + (n > 0 ? '+' : '') + n + '</td>';
+    }
+
+    function esc_(s) {
+      return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function renderRecords() {
+      if (!recData) return;
+
+      var rows = recFiltered_();
+      var total = rows.reduce(function(a, x) { return a + x.rec.score; }, 0);
+      document.getElementById('rec-summary').innerText =
+        '기록 ' + rows.length + '건 · 점수 합계 ' + (total > 0 ? '+' : '') + total;
+
+      var body = document.getElementById('rec-body');
+      if (!rows.length) {
+        body.innerHTML = '<div class="rec-empty">해당하는 기록이 없습니다.</div>';
+        return;
+      }
+
+      if (recTab === 'list') {
+        var list = rows.slice();
+        if (recSort.list === 'score') {
+          list.sort(function(a, b) { return a.rec.score - b.rec.score || b.rec.ms - a.rec.ms; });
+        } else {
+          list.sort(function(a, b) { return b.rec.ms - a.rec.ms; });
+        }
+
+        var h = '<table class="rec-table"><thead><tr>' +
+          '<th class="sortable" onclick="recSortBy(\'time\')">시각' + (recSort.list === 'time' ? ' ▾' : '') + '</th>' +
+          '<th>학년-반-번호</th><th>이름</th><th>항목</th>' +
+          '<th class="sortable" style="text-align:right;" onclick="recSortBy(\'score\')">점수' + (recSort.list === 'score' ? ' ▴' : '') + '</th>' +
+          '</tr></thead><tbody>';
+
+        list.forEach(function(x) {
+          h += '<tr>' +
+            '<td>' + esc_(x.rec.ts.slice(0, 16)) + '</td>' +
+            '<td>' + esc_(x.where) + (x.gone ? '<span class="rec-gone">명단에 없음</span>' : '') + '</td>' +
+            '<td>' + esc_(x.rec.name) + '</td>' +
+            '<td>' + esc_(x.rec.item) + (x.rec.hasPhoto ? ' 📷' : '') + '</td>' +
+            recScoreCell_(x.rec.score) +
+          '</tr>';
+        });
+        body.innerHTML = h + '</tbody></table>';
+
+      } else {
+        var agg = {};
+        rows.forEach(function(x) {
+          var k = x.rec.studentId;
+          if (!agg[k]) agg[k] = { studentId: k, name: x.rec.name, where: x.where, gone: x.gone, sum: 0, plus: 0, minus: 0, n: 0 };
+          agg[k].sum += x.rec.score;
+          agg[k].n++;
+          if (x.rec.score > 0) agg[k].plus++;
+          else if (x.rec.score < 0) agg[k].minus++;
+        });
+
+        var arr = Object.keys(agg).map(function(k) { return agg[k]; });
+        if (recSort.sum === 'name') {
+          arr.sort(function(a, b) { return a.where.localeCompare(b.where, 'ko'); });
+        } else {
+          arr.sort(function(a, b) { return b.sum - a.sum || b.n - a.n; });
+        }
+
+        var h2 = '<table class="rec-table"><thead><tr>' +
+          '<th class="rec-rank">#</th>' +
+          '<th class="sortable" onclick="recSortBy(\'name\')">학년-반-번호' + (recSort.sum === 'name' ? ' ▾' : '') + '</th>' +
+          '<th>이름</th><th>기록수</th><th>칭찬</th><th>주의</th>' +
+          '<th class="sortable" style="text-align:right;" onclick="recSortBy(\'score\')">누적점수' + (recSort.sum === 'score' ? ' ▾' : '') + '</th>' +
+          '</tr></thead><tbody>';
+
+        arr.forEach(function(a, i) {
+          h2 += '<tr>' +
+            '<td class="rec-rank">' + (i + 1) + '</td>' +
+            '<td>' + esc_(a.where) + (a.gone ? '<span class="rec-gone">명단에 없음</span>' : '') + '</td>' +
+            '<td>' + esc_(a.name) + '</td>' +
+            '<td>' + a.n + '</td>' +
+            '<td style="color:#2e7d32;">' + a.plus + '</td>' +
+            '<td style="color:#c62828;">' + a.minus + '</td>' +
+            recScoreCell_(a.sum) +
+          '</tr>';
+        });
+        body.innerHTML = h2 + '</tbody></table>';
+      }
+    }
+
+    function downloadRecordsCsv() {
+      if (!recData) return;
+      var rows = recFiltered_();
+      if (!rows.length) { alert('내려받을 기록이 없습니다.'); return; }
+
+      var q = function(v) { return '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"'; };
+      var lines = [['시각', '학년', '반', '번호', '학번', '이름', '항목', '점수', '사진'].map(q).join(',')];
+
+      rows.slice().sort(function(a, b) { return b.rec.ms - a.rec.ms; }).forEach(function(x) {
+        var p = x.where ? x.where.split('-') : ['', '', ''];
+        lines.push([x.rec.ts, p[0], p[1], p[2], x.rec.studentId, x.rec.name,
+                    x.rec.item, x.rec.score, x.rec.hasPhoto ? 'O' : ''].map(q).join(','));
+      });
+
+      // 엑셀·구글시트에서 한글이 깨지지 않도록 BOM 을 붙인다
+      var blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+      var g = document.getElementById('rec-grade').value;
+      var c = document.getElementById('rec-cls').value;
+      var d = new Date();
+      var p2 = function(n) { return String(n).padStart(2, '0'); };
+      var fname = '관찰기록_' + (g ? g + '학년' : '전체') + (c ? c + '반' : '') + '_' +
+                  d.getFullYear() + p2(d.getMonth() + 1) + p2(d.getDate()) + '.csv';
+
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = fname;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(function() { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+      showToast(rows.length + '건을 내려받았습니다');
+    }
+
+    /* ================================================================
+       명렬표 동기화 (시트 → Firestore, 단방향)
+       ================================================================
+       ★ students / photos / meta 만 건드린다.
+         관찰기록(observations)과 자리배치 기록(history)은 Firestore 에만 있으므로
+         여기서 절대 건드리지 않는다 — 덮어쓰면 복구할 곳이 없다.
+       ================================================================ */
+    var syncPlan = null;
+    var isSyncing = false;
+
+    function openSync() {
+      document.getElementById('sync-modal').style.display = 'flex';
+      document.getElementById('sync-apply-btn').disabled = true;
+      syncPlan = null;
+      previewSync();
+    }
+
+    function closeSync() {
+      if (isSyncing) { alert('반영하는 중입니다. 끝나면 닫아주세요.'); return; }
+      document.getElementById('sync-modal').style.display = 'none';
+    }
+
+    function syncSay_(html) { document.getElementById('sync-body').innerHTML = html; }
+
+    function previewSync() {
+      syncSay_('<div class="sync-status">명렬표와 앱을 비교하는 중…</div>');
+
+      Promise.all([api.syncFetchRoster(), api.listAllStudents()])
+        .then(function(res) {
+          var roster = res[0], remote = res[1];
+          syncPlan = buildSyncPlan_(roster, remote);
+          renderSyncPlan_();
+        })
+        .catch(function(err) {
+          syncSay_('<div class="sync-status" style="color:#c62828;">불러오지 못했습니다.<br>' +
+                   (err && err.message ? err.message : err) + '</div>');
+        });
+    }
+
+    function buildSyncPlan_(roster, remote) {
+      var add = [], change = [], remove = [], structure = {}, seen = {};
+
+      roster.students.forEach(function(s) {
+        seen[s.id] = true;
+
+        if (!structure[s.grade]) structure[s.grade] = [];
+        if (structure[s.grade].indexOf(s.cls) === -1) structure[s.grade].push(s.cls);
+
+        var r = remote[s.id];
+        if (!r) { add.push(s); return; }
+
+        var same = String(r.name || '') === s.name
+                && String(r.studentId || '') === s.studentId
+                && Number(r.no) === Number(s.no)
+                && String(r.photoId || '') === String(s.photoId || '');
+        if (!same) change.push(s);
+      });
+
+      Object.keys(remote).forEach(function(id) {
+        if (!seen[id]) remove.push({ id: id, name: String(remote[id].name || '') });
+      });
+
+      Object.keys(structure).forEach(function(g) {
+        structure[g].sort(function(a, b) { return Number(a) - Number(b); });
+      });
+
+      return {
+        add: add, change: change, remove: remove,
+        structure: structure,
+        skipped: roster.skipped || 0,
+        sheetCount: roster.students.length,
+        appCount: Object.keys(remote).length
+      };
+    }
+
+    function syncNames_(list, fmt) {
+      if (!list.length) return '';
+      var shown = list.slice(0, 60).map(fmt).join(', ');
+      if (list.length > 60) shown += ' … 외 ' + (list.length - 60) + '명';
+      return shown;
+    }
+
+    function renderSyncPlan_() {
+      var p = syncPlan;
+      var total = p.add.length + p.change.length + p.remove.length;
+
+      var html =
+        '<div class="sync-counts">' +
+          '<div class="sync-count add"><b>' + p.add.length + '</b><span>추가</span></div>' +
+          '<div class="sync-count chg"><b>' + p.change.length + '</b><span>변경</span></div>' +
+          '<div class="sync-count del"><b>' + p.remove.length + '</b><span>삭제</span></div>' +
+        '</div>' +
+        '<div class="sync-status">시트 ' + p.sheetCount + '명 · 앱 ' + p.appCount + '명' +
+          (p.skipped ? ' · 시트의 오류 행 ' + p.skipped + '개는 건너뜀' : '') + '</div>';
+
+      if (total === 0) {
+        html += '<div class="sync-status" style="margin-top:12px; color:#2e7d32; font-weight:700;">' +
+                '이미 최신입니다. 반영할 것이 없습니다.</div>';
+        syncSay_(html);
+        document.getElementById('sync-apply-btn').disabled = true;
+        return;
+      }
+
+      var f = function(s) { return s.id + ' ' + s.name; };
+      if (p.add.length) html += '<div class="sync-group"><h5>추가될 학생</h5><div class="sync-names">' + syncNames_(p.add, f) + '</div></div>';
+      if (p.change.length) html += '<div class="sync-group"><h5>정보가 바뀐 학생</h5><div class="sync-names">' + syncNames_(p.change, f) + '</div></div>';
+      if (p.remove.length) html += '<div class="sync-group"><h5>명단에서 빠진 학생</h5><div class="sync-names">' + syncNames_(p.remove, f) + '</div></div>';
+
+      if (p.remove.length) {
+        html += '<div class="sync-warn">빠진 학생은 <b>명단과 사진만</b> 지웁니다. ' +
+                '그동안 쌓인 <b>관찰기록은 그대로 남습니다.</b></div>';
+      }
+
+      syncSay_(html);
+      document.getElementById('sync-apply-btn').disabled = false;
+    }
+
+    /** 동시에 limit 개씩 처리 */
+    function mapLimit_(items, limit, fn, onEach) {
+      return new Promise(function(resolve, reject) {
+        var i = 0, active = 0, done = 0, stopped = false;
+        if (!items.length) return resolve();
+
+        function pump() {
+          if (stopped) return;
+          while (active < limit && i < items.length) {
+            (function(item) {
+              active++;
+              Promise.resolve().then(function() { return fn(item); })
+                .then(function() {
+                  active--; done++;
+                  if (onEach) onEach(done, items.length);
+                  if (done === items.length) return resolve();
+                  pump();
+                })
+                .catch(function(e) { stopped = true; reject(e); });
+            })(items[i++]);
+          }
+        }
+        pump();
+      });
+    }
+
+    function applySync() {
+      if (!syncPlan || isSyncing) return;
+      var p = syncPlan;
+
+      var msg = '다음을 반영합니다.\n\n' +
+                '추가 ' + p.add.length + '명 / 변경 ' + p.change.length + '명 / 삭제 ' + p.remove.length + '명';
+      if (p.remove.length) msg += '\n\n삭제되는 학생의 관찰기록은 남습니다.';
+      if (!confirm(msg)) return;
+
+      isSyncing = true;
+      document.getElementById('sync-apply-btn').disabled = true;
+
+      var upserts = p.add.concat(p.change);
+      var photoTargets = upserts.filter(function(s) { return !!s.photoId; });
+      var photoDone = 0, photoFail = 0;
+
+      syncSay_('<div class="sync-status">명단을 쓰는 중…</div>');
+
+      // 1) 학생 문서 (사진 유무는 일단 photoId 기준으로 표시하고, 실패하면 아래에서 바로잡는다)
+      var chunks = [];
+      for (var i = 0; i < upserts.length; i += 400) chunks.push(upserts.slice(i, i + 400));
+
+      var chain = Promise.resolve();
+      chunks.forEach(function(chunk) {
+        chain = chain.then(function() {
+          return api.writeStudents(chunk.map(function(s) {
+            return {
+              id: s.id,
+              data: {
+                grade: s.grade, cls: s.cls, no: s.no,
+                name: s.name, studentId: s.studentId,
+                photoId: s.photoId || '',
+                hasPhoto: !!s.photoId
+              }
+            };
+          }));
+        });
+      });
+
+      // 2) 사진 — 받아서 화면 크기로 줄인 뒤 저장
+      chain = chain.then(function() {
+        if (!photoTargets.length) return;
+        syncSay_('<div class="sync-status">사진을 가져오는 중… 0/' + photoTargets.length + '</div>');
+
+        return mapLimit_(photoTargets, 4, function(s) {
+          return api.syncFetchPhoto(s.photoId)
+            .then(function(dataUri) {
+              if (!dataUri) { photoFail++; return; }
+              return shrinkPhoto_(dataUri, 200, 0.82).then(function(small) {
+                return api.writePhoto(s.id, small);
+              });
+            })
+            .catch(function() { photoFail++; });
+        }, function(done, total) {
+          photoDone = done;
+          syncSay_('<div class="sync-status">사진을 가져오는 중… ' + done + '/' + total + '</div>');
+        });
+      });
+
+      // 3) 빠진 학생 정리 (관찰기록은 두고 명단·사진만)
+      chain = chain.then(function() {
+        if (!p.remove.length) return;
+        syncSay_('<div class="sync-status">빠진 학생을 정리하는 중…</div>');
+
+        var ids = p.remove.map(function(x) { return x.id; });
+        var c = Promise.resolve();
+        for (var j = 0; j < ids.length; j += 200) {
+          (function(slice) { c = c.then(function() { return api.removeStudents(slice); }); })(ids.slice(j, j + 200));
+        }
+        return c;
+      });
+
+      // 4) 학년/반 목록
+      chain = chain.then(function() { return api.writeStructure(p.structure); });
+
+      chain
+        .then(function() {
+          isSyncing = false;
+          syncSay_('<div class="sync-status" style="color:#2e7d32; font-weight:700;">반영 완료</div>' +
+                   '<div class="sync-status" style="margin-top:8px;">' +
+                   '추가 ' + p.add.length + '명 · 변경 ' + p.change.length + '명 · 삭제 ' + p.remove.length + '명' +
+                   (photoTargets.length ? '<br>사진 ' + (photoDone - photoFail) + '장 갱신' +
+                      (photoFail ? ' (' + photoFail + '장 실패)' : '') : '') +
+                   '<br><br>학년·반을 다시 선택하면 새 명단이 보입니다.</div>');
+          structureData = p.structure;
+          rebuildGradeSelect_();
+          showToast('명렬표 동기화 완료');
+        })
+        .catch(function(err) {
+          isSyncing = false;
+          document.getElementById('sync-apply-btn').disabled = false;
+          syncSay_('<div class="sync-status" style="color:#c62828;">반영 중 오류가 났습니다.<br>' +
+                   (err && err.message ? err.message : err) +
+                   '<br><br>다시 [반영하기]를 누르면 안 끝난 부분부터 이어서 처리합니다.</div>');
+        });
+    }
+
+    /** 학년 선택 상자를 structureData 로 다시 만든다 (첫 로딩 때와 같은 모양) */
+    function rebuildGradeSelect_() {
+      var sel = document.getElementById('grade-select');
+      var keep = sel.value;
+      sel.innerHTML = '<option>학년</option>';
+
+      Object.keys(structureData).sort().forEach(function(g) {
+        var opt = document.createElement('option');
+        opt.value = g;
+        opt.text = g + '학년';
+        sel.add(opt);
+      });
+
+      if (keep && structureData[keep]) {
+        sel.value = keep;
+        loadClasses();   // 반 목록도 새 구조로 다시
+      }
+    }
+
+    /* ================================================================
+       발표자 뽑기
+       한 번 나온 학생은 다시 나오지 않는다. 반을 바꾸면 처음부터 다시.
+       엄지척을 누르면 '발표를 잘함' 이 관찰기록에 바로 남는다.
+       ================================================================ */
+    var PRESENTER_ITEM = '발표를 잘함';
+    var isDrawing = false;
+
+    function openPresenter() {
+      if (!allStudents.length) {
+        alert('학년과 반을 먼저 선택해주세요.');
+        return;
+      }
+      document.getElementById('presenter-modal').style.display = 'flex';
+      renderPresenter();
+    }
+
+    function closePresenter() {
+      document.getElementById('presenter-modal').style.display = 'none';
+    }
+
+    function resetPresenters() {
+      if (isDrawing) return;
+      if (drawnPresenters.length && !confirm('지금까지 뽑은 ' + drawnPresenters.length + '명을 지우고 처음부터 다시 뽑을까요?\n(이미 남긴 발표 기록은 지워지지 않습니다)')) return;
+      drawnPresenters = [];
+      setStage_(null, '뽑기를 눌러주세요');
+      renderPresenter();
+      refreshAllSeatPhotos();   // 자리 강조도 해제
+    }
+
+    function remainingStudents_() {
+      var picked = drawnPresenters.map(function(p) { return p.no; });
+      return allStudents.filter(function(s) { return picked.indexOf(s.no) === -1; });
+    }
+
+    /** 무대(큰 화면)에 한 명을 띄운다. student 가 null 이면 안내문만. */
+    function setStage_(student, message) {
+      var stage = document.getElementById('presenter-stage');
+      if (!student) {
+        stage.className = 'presenter-stage';
+        stage.innerHTML = '<div class="ps-placeholder"><span class="material-icons">campaign</span></div>' +
+                          '<div class="ps-name">' + (message || '') + '</div>';
+        return;
+      }
+      var src = photoCache[student.no] || '';
+      stage.innerHTML =
+        (src ? '<img class="ps-photo" src="' + src + '">'
+             : '<div class="ps-placeholder"><span class="material-icons">person</span></div>') +
+        '<div class="ps-name">' + student.no + '. ' + student.name + '</div>' +
+        (message ? '<div class="ps-hint">' + message + '</div>' : '');
+    }
+
+    function drawPresenter() {
+      if (isDrawing) return;
+
+      var pool = remainingStudents_();
+      if (!pool.length) {
+        setStage_(null, '모두 뽑았습니다 🎉');
+        return;
+      }
+
+      var winner = pool[Math.floor(Math.random() * pool.length)];
+
+      // 이름이 잠깐 돌아가다 멈추는 연출.
+      // ★ 틱 개수로 세면 안 된다 — 다른 탭에 가 있으면 브라우저가 타이머를 1초로 늦춰서
+      //   연출이 10초 넘게 이어지고 그동안 버튼이 잠긴다. 실제 경과 시간으로 끝낸다.
+      isDrawing = true;
+      document.getElementById('presenter-draw-btn').disabled = true;
+      document.getElementById('presenter-stage').className = 'presenter-stage rolling';
+
+      var endAt = Date.now() + 700;
+      var timer = setInterval(function() {
+        if (Date.now() < endAt) {
+          var s = pool[Math.floor(Math.random() * pool.length)];
+          setStage_(s, '');
+          document.getElementById('presenter-stage').className = 'presenter-stage rolling';
+          return;
+        }
+
+        clearInterval(timer);
+        isDrawing = false;
+
+        drawnPresenters.push({
+          no: winner.no,
+          name: winner.name,
+          studentId: winner.studentId,
+          praised: false
+        });
+        setStage_(winner, '엄지척을 누르면 "' + PRESENTER_ITEM + '" 으로 기록됩니다');
+        renderPresenter();
+        refreshAllSeatPhotos();   // 자리 강조 반영
+      }, 60);
+    }
+
+    function renderPresenter() {
+      var remain = remainingStudents_().length;
+      document.getElementById('presenter-remain').innerText =
+        '뽑은 학생 ' + drawnPresenters.length + '명 · 남은 학생 ' + remain + '명';
+      document.getElementById('presenter-draw-btn').disabled = (remain === 0) || isDrawing;
+
+      var box = document.getElementById('presenter-list');
+      box.innerHTML = '';
+
+      // 최근에 뽑은 사람이 위로
+      drawnPresenters.slice().reverse().forEach(function(p, revIdx) {
+        var order = drawnPresenters.length - revIdx;
+        var row = document.createElement('div');
+        row.className = 'presenter-row';
+
+        var cls = p.praised === true ? 'done' : (p.praised === 'saving' ? 'saving' : '');
+        var icon = p.praised === true ? 'thumb_up' : 'thumb_up_off_alt';
+        var title = p.praised === true ? '기록됨' : PRESENTER_ITEM + ' 기록하기';
+
+        row.innerHTML =
+          '<div class="pr-order">' + order + '</div>' +
+          '<div class="pr-name">' + p.no + '. ' + p.name + '</div>' +
+          '<button class="pr-thumb ' + cls + '" title="' + title + '" ' +
+            'onclick="praisePresenter(' + p.no + ')">' +
+            '<span class="material-icons">' + icon + '</span></button>';
+
+        box.appendChild(row);
+      });
+    }
+
+    function praisePresenter(no) {
+      var matches = drawnPresenters.filter(function(p) { return p.no === no; });
+      var p = matches[0];
+      if (!p || p.praised) return;   // 이미 눌렀거나 저장 중이면 무시
+
+      var found = checklistItems.filter(function(c) { return c.item === PRESENTER_ITEM; });
+      var score = found.length ? found[0].score : 1;
+
+      p.praised = 'saving';
+      renderPresenter();
+
+      google.script.run
+        .withSuccessHandler(function(res) {
+          p.praised = true;
+          renderPresenter();
+          refreshAllSeatPhotos();   // 강조 색을 초록으로
+          showToast(p.name + ' — ' + PRESENTER_ITEM + ' 기록 완료! (누적 ' + res.cumulative + '점)');
+        })
+        .withFailureHandler(function(err) {
+          p.praised = false;
+          renderPresenter();
+          alert('기록 실패: ' + err);
+        })
+        .saveObservation(String(p.studentId), p.name, PRESENTER_ITEM, score, '');
+    }
+  </script>
+
+  <!-- 전체 관찰기록 -->
+  <div id="rec-modal" class="modal-overlay" style="z-index:5700;"
+       onclick="if(event.target===this) closeRecords()">
+    <div class="rec-box">
+      <div class="rec-head">
+        <h3>📋 전체 관찰기록</h3>
+        <button class="close-btn" onclick="closeRecords()">
+          <span class="material-icons">close</span>
+        </button>
+      </div>
+
+      <div class="rec-filters">
+        <select id="rec-grade" onchange="onRecGradeChange()"><option value="">전체 학년</option></select>
+        <select id="rec-cls" onchange="renderRecords()"><option value="">전체 반</option></select>
+        <select id="rec-period" onchange="renderRecords()">
+          <option value="all">전체 기간</option>
+          <option value="today">오늘</option>
+          <option value="7">최근 7일</option>
+          <option value="30">최근 30일</option>
+          <option value="90">최근 90일</option>
+        </select>
+        <div class="rec-spacer"></div>
+        <div class="rec-summary" id="rec-summary"></div>
+      </div>
+
+      <div class="rec-tabs">
+        <button class="rec-tab active" id="rec-tab-list" onclick="switchRecordsTab('list')">기록 목록</button>
+        <button class="rec-tab" id="rec-tab-sum" onclick="switchRecordsTab('sum')">학생별 집계</button>
+      </div>
+
+      <div class="rec-body" id="rec-body"></div>
+
+      <div class="rec-actions">
+        <button class="btn-csv" onclick="downloadRecordsCsv()">⬇ CSV 내려받기</button>
+        <div style="flex:1;"></div>
+        <button onclick="closeRecords()">닫기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 명렬표 동기화 -->
+  <div id="sync-modal" class="modal-overlay" style="z-index:5600;"
+       onclick="if(event.target===this) closeSync()">
+    <div class="sync-box">
+      <div class="sync-head">
+        <h3>🔄 명렬표 동기화</h3>
+        <button class="close-btn" onclick="closeSync()">
+          <span class="material-icons">close</span>
+        </button>
+      </div>
+      <div id="sync-body" class="sync-body"></div>
+      <div class="sync-actions">
+        <button class="btn-apply" id="sync-apply-btn" onclick="applySync()" disabled>반영하기</button>
+        <button onclick="closeSync()">닫기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 발표자 뽑기 -->
+  <div id="presenter-modal" class="modal-overlay" style="z-index:5500;"
+       onclick="if(event.target===this) closePresenter()">
+    <div class="presenter-box">
+      <div class="presenter-head">
+        <h3>🎤 발표자 뽑기</h3>
+        <button class="close-btn" onclick="closePresenter()">
+          <span class="material-icons">close</span>
+        </button>
+      </div>
+
+      <div id="presenter-stage" class="presenter-stage">
+        <div class="ps-placeholder"><span class="material-icons">campaign</span></div>
+        <div class="ps-name">뽑기를 눌러주세요</div>
+      </div>
+
+      <div class="presenter-actions">
+        <button class="btn-primary" id="presenter-draw-btn" onclick="drawPresenter()">🎲 뽑기</button>
+        <button onclick="resetPresenters()">↺ 다시 시작</button>
+      </div>
+
+      <div id="presenter-remain" class="presenter-remain"></div>
+      <div id="presenter-list" class="presenter-list"></div>
+    </div>
+  </div>
+
+  <!-- 관찰기록 사진 확대 보기 -->
+  <div id="obs-photo-modal" class="modal-overlay" style="z-index:6000;" onclick="closeObsPhoto()">
+    <div style="max-width:92vw; max-height:92vh; text-align:center;">
+      <img id="obs-photo-img" src=""
+           style="max-width:92vw; max-height:84vh; border-radius:8px; box-shadow:0 8px 32px rgba(0,0,0,0.5);">
+      <div style="color:#fff; margin-top:10px; font-size:13px;">화면을 누르면 닫힙니다</div>
+    </div>
+  </div>
+</body>
+</html>
