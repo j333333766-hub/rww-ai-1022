@@ -113,7 +113,49 @@ for (const s of STEPS.filter((x) => x.links)) {
     el('h2', {}, s.title),
     s.desc ? el('p', { class: 'lead' }, s.desc) : null,
     s.links.length ? el('div', { class: 'link-grid' }, s.links.map((l) => el('a', { class: 'link-btn', href: l.url, target: '_blank', rel: 'noopener' },
-      el('img', { src: emojiSrc(l.emoji), alt: '' }), el('span', {}, l.label), el('span', { class: 'go' }, '열기 ↗')))) : null));
+      el('img', { src: emojiSrc(l.emoji), alt: '' }), el('span', {}, l.label), el('span', { class: 'go' }, '열기 ↗')))) : null,
+    s.id === 'calc' ? calcDraw() : null));
+}
+
+// ---------- 2단계: 계산왕 문제 뽑기 ----------
+// 축전 앱(imf12-calcking) 운영자 화면의 [문제 뽑기]와 같은 방식: 기초 숫자 5개(1~6) + 목표 수(검정 주사위 10~60 + 1~6).
+// 문제 시작·정답 제출·점수는 없다.
+function calcDraw() {
+  const dice = Array.from({ length: 5 }, () => el('div', { class: 'cw-die' }, '?'));
+  const target = el('div', { class: 'cw-target' }, '?');
+  const b1 = el('span', { class: 'cw-black' }, '-'), b2 = el('span', { class: 'cw-black' }, '-');
+  const btn = el('button', { class: 'btn primary big', type: 'button' }, '🎲 문제 뽑기');
+  const roll = (n) => Math.floor(Math.random() * n) + 1;
+  btn.onclick = () => {
+    btn.disabled = true;
+    const els = [target, ...dice];
+    els.forEach((x) => x.classList.add('cw-rolling'));
+    let t = 0;
+    const iv = setInterval(() => {
+      t += 100;
+      dice.forEach((d) => { d.textContent = roll(6); });
+      target.textContent = roll(60) + 6;
+      if (t < 1500) return;
+      clearInterval(iv);
+      els.forEach((x) => x.classList.remove('cw-rolling'));
+      const ones = roll(6), tens = roll(6) * 10;
+      dice.forEach((d) => { d.textContent = roll(6); });
+      target.textContent = tens + ones;
+      b1.textContent = ones; b2.textContent = tens;
+      btn.disabled = false;
+      btn.textContent = '🎲 다시 뽑기';
+    }, 100);
+  };
+  return el('div', { class: 'cw' },
+    el('div', { class: 'cw-board' },
+      el('div', { class: 'cw-panel' }, el('div', { class: 'cw-label' }, '기초 숫자 ', el('span', {}, '각각 한 번씩')), el('div', { class: 'cw-dice' }, dice)),
+      el('div', { class: 'cw-panel' }, el('div', { class: 'cw-label' }, '목표 수'), target,
+        el('div', { class: 'cw-blacks', 'aria-label': '검정 주사위 두 개' }, b1, el('span', {}, '+'), b2))),
+    el('div', { class: 'cw-go' }, btn),
+    el('ul', { class: 'cw-rule' },
+      el('li', {}, '기초 숫자 5개를 ', el('b', {}, '모두, 각각 한 번씩'), ' 써서 목표 수가 나오는 식을 만들어요.'),
+      el('li', {}, '쓸 수 있는 것: ', el('b', {}, '+ − × ÷, 괄호, 거듭제곱'), ' · 숫자를 붙여 두 자리 수(1과 2로 12)를 만들면 안 돼요.'),
+      el('li', {}, '예) 기초 숫자 2, 3, 4, 5, 6 · 목표 수 40 → (6 + 4) × (5 − 3 + 2) = 40')));
 }
 
 // ---------- 3단계: 퀴즈 ----------
